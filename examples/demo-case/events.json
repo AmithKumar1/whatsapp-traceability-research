@@ -1,0 +1,62 @@
+[
+  {
+    "event_id": "evt-001",
+    "event_type": "ORIGIN",
+    "actor_id": "acct:synthetic-A",
+    "timestamp": "2026-10-23T08:30:00Z",
+    "time_source": "simulated-client-clock",
+    "parent_event_id": null,
+    "content_ref": "content:demo-001",
+    "evidence_class": "synthetic"
+  },
+  {
+    "event_id": "evt-002",
+    "event_type": "FORWARD",
+    "actor_id": "acct:synthetic-B",
+    "timestamp": "2026-10-23T08:31:12Z",
+    "time_source": "simulated-client-clock",
+    "parent_event_id": "evt-001",
+    "content_ref": "content:demo-001",
+    "evidence_class": "synthetic"
+  },
+  {
+    "event_id": "evt-003",
+    "event_type": "FORWARD",
+    "actor_id": "acct:synthetic-C",
+    "timestamp": "2026-10-23T08:33:41Z",
+    "time_source": "simulated-client-clock",
+    "parent_event_id": "evt-002",
+    "content_ref": "content:demo-001",
+    "evidence_class": "synthetic"
+  },
+  {
+    "event_id": "evt-004",
+    "event_type": "REPORT",
+    "actor_id": "acct:synthetic-D",
+    "timestamp": "2026-10-23T08:40:09Z",
+    "time_source": "simulated-client-clock",
+    "parent_event_id": "evt-003",
+    "content_ref": "content:demo-001",
+    "evidence_class": "synthetic"
+  },
+  {
+    "event_id": "evt-005",
+    "event_type": "FORWARD",
+    "actor_id": "acct:synthetic-E",
+    "timestamp": "2026-10-23T08:35:10Z",
+    "time_source": "simulated-client-clock",
+    "parent_event_id": "evt-002",
+    "content_ref": "content:demo-001",
+    "evidence_class": "synthetic"
+  },
+  {
+    "event_id": "evt-006",
+    "event_type": "DELIVER",
+    "actor_id": "acct:synthetic-F",
+    "timestamp": "2026-10-23T08:36:05Z",
+    "time_source": "simulated-client-clock",
+    "parent_event_id": "evt-005",
+    "content_ref": "content:demo-001",
+    "evidence_class": "synthetic"
+  }
+]

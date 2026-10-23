@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opentrace.example/schemas/benchmark-report.schema.json",
+  "title": "WhatsApp Traceability Research Lab Unified Synthetic Benchmark Report",
+  "description": "Machine-dependent measurements for synthetic, non-reference-interoperable research adapters.",
+  "type": "object",
+  "required": [
+    "schema",
+    "opentrace_version",
+    "generated_at_utc",
+    "environment",
+    "method",
+    "warnings",
+    "records",
+    "summary"
+  ],
+  "properties": {
+    "schema": {
+      "const": "opentrace.benchmark.v1"
+    },
+    "opentrace_version": {
+      "type": "string"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "python",
+        "implementation",
+        "platform"
+      ],
+      "properties": {
+        "python": {
+          "type": "string"
+        },
+        "implementation": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "method": {
+      "type": "object"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "protocol",
+          "interoperable_with_reference",
+          "workload",
+          "measurements",
+          "outcome",
+          "samples_ns"
+        ],
+        "properties": {
+          "protocol": {
+            "type": "string"
+          },
+          "interoperable_with_reference": {
+            "const": false
+          },
+          "workload": {
+            "type": "object",
+            "required": [
+              "kind",
+              "message_bytes"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "message_bytes": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": true
+          },
+          "measurements": {
+            "type": "object",
+            "required": [
+              "repeats",
+              "construction_ns_median",
+              "construction_ns_min",
+              "construction_ns_max",
+              "trace_ns_median",
+              "trace_ns_min",
+              "trace_ns_max",
+              "state_entries",
+              "serialized_trace_bytes"
+            ],
+            "properties": {
+              "repeats": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "construction_ns_median": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "construction_ns_min": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "construction_ns_max": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "trace_ns_median": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "trace_ns_min": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "trace_ns_max": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "state_entries": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "serialized_trace_bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": true
+          },
+          "outcome": {
+            "type": "object",
+            "required": [
+              "correct",
+              "scenario_nodes",
+              "nodes_recovered",
+              "edges_recovered",
+              "node_disclosure_fraction",
+              "disclosure_mode"
+            ],
+            "properties": {
+              "correct": {
+                "type": "boolean"
+              },
+              "scenario_nodes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "nodes_recovered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "edges_recovered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "node_disclosure_fraction": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "disclosure_mode": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "samples_ns": {
+            "type": "object",
+            "required": [
+              "construction",
+              "trace"
+            ],
+            "properties": {
+              "construction": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minItems": 1
+              },
+              "trace": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minItems": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "record_count",
+        "correct_record_count",
+        "all_correct"
+      ],
+      "properties": {
+        "record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correct_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "all_correct": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

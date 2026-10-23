@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opentrace:schema:authorization:approval:1",
+  "title": "WhatsApp Traceability Research Lab signed approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_version",
+    "approval_id",
+    "request_sha256",
+    "policy_sha256",
+    "approver_id",
+    "role",
+    "trust_domain",
+    "decision",
+    "approved_at",
+    "signature_algorithm",
+    "signature"
+  ],
+  "properties": {
+    "approval_version": {
+      "const": "1"
+    },
+    "approval_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "approver_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trust_domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decision": {
+      "const": "APPROVE"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "signature_algorithm": {
+      "const": "Ed25519"
+    },
+    "signature": {
+      "type": "string",
+      "contentEncoding": "base64"
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opentrace.dev/schemas/protocol-comparison.v1.json",
+  "title": "WhatsApp Traceability Research Lab Protocol Comparison Report",
+  "type": "object",
+  "required": [
+    "schema",
+    "opentrace_version",
+    "generated_at_utc",
+    "scenario",
+    "records",
+    "summary"
+  ],
+  "properties": {
+    "schema": {
+      "const": "opentrace.protocol-comparison.v1"
+    },
+    "opentrace_version": {
+      "type": "string"
+    },
+    "generated_at_utc": {
+      "type": "string"
+    },
+    "scenario": {
+      "type": "object",
+      "required": [
+        "message_bytes",
+        "linear_hops",
+        "tree_depth",
+        "branching_factor",
+        "repeats"
+      ],
+      "properties": {
+        "message_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "linear_hops": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tree_depth": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "branching_factor": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "repeats": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "protocol_id",
+          "reference_status",
+          "capabilities",
+          "measurements",
+          "outcome",
+          "samples_ns",
+          "caveat"
+        ],
+        "properties": {
+          "protocol_id": {
+            "type": "string"
+          },
+          "reference_status": {
+            "enum": [
+              "synthetic",
+              "reference",
+              "interoperable"
+            ]
+          },
+          "capabilities": {
+            "type": "object",
+            "required": [
+              "finds_source",
+              "reveals_intermediate_hops",
+              "reveals_full_forwarding_tree",
+              "complaint_based",
+              "disclosure_mode",
+              "default_disclosure",
+              "metadata_surface",
+              "collusion_model",
+              "authorization_model"
+            ],
+            "properties": {
+              "finds_source": {
+                "type": "boolean"
+              },
+              "reveals_intermediate_hops": {
+                "type": "boolean"
+              },
+              "reveals_full_forwarding_tree": {
+                "type": "boolean"
+              },
+              "complaint_based": {
+                "type": "boolean"
+              },
+              "disclosure_mode": {
+                "type": "string"
+              },
+              "default_disclosure": {
+                "type": "string"
+              },
+              "metadata_surface": {
+                "type": "string"
+              },
+              "collusion_model": {
+                "type": "string"
+              },
+              "authorization_model": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "measurements": {
+            "type": "object"
+          },
+          "outcome": {
+            "type": "object",
+            "required": [
+              "correct",
+              "scenario_nodes",
+              "nodes_recovered",
+              "edges_recovered",
+              "node_disclosure_fraction"
+            ],
+            "properties": {
+              "correct": {
+                "type": "boolean"
+              },
+              "scenario_nodes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "nodes_recovered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "edges_recovered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "node_disclosure_fraction": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "samples_ns": {
+            "type": "object"
+          },
+          "caveat": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "protocol_count",
+        "all_correct",
+        "source_only_protocols",
+        "tree_disclosing_protocols",
+        "interoperable_protocols"
+      ],
+      "properties": {
+        "protocol_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "all_correct": {
+          "type": "boolean"
+        },
+        "source_only_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tree_disclosing_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "interoperable_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

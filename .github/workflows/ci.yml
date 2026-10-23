@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    timeout-minutes: 20
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e .
+      - run: python -m pip install -r requirements-dev.txt
+      - run: e2ee-traceability --help
+      - run: python -m compileall -q src
+      - run: pytest -q
+      - run: python scripts/release_audit.py
+
+      # Core synthetic evidence and authorization paths.
+      - run: python -m opentrace demo --out artifacts/demo-case
+      - run: python -m opentrace verify artifacts/demo-case
+      - run: python -m opentrace authorization-demo --out artifacts/authorization-demo
+      - run: python -m opentrace authorize-check --request artifacts/authorization-demo/request.json --approvals artifacts/authorization-demo/approvals.json --trust artifacts/authorization-demo/trust-registry.json --policy artifacts/authorization-demo/policy.json
+      - run: python -m opentrace merkle-demo --out artifacts/merkle-proof.json
+      - run: python -m opentrace merkle-verify --proof artifacts/merkle-proof.json --entry-text synthetic-event-002
+
+      # Explicit smoke tests for every research adapter.
+      - run: python -m opentrace traceback2019-tree-demo
+      - run: python -m opentrace traceback2019-benchmark --max-hops 2 --out artifacts/path-benchmark.json
+      - run: python -m opentrace source-tracking2021-demo
+      - run: e2ee-traceability hts2025-demo --hops 4 --anonymity-threshold-hops 2 --trace-threshold-hops 4
+      - run: e2ee-traceability minimal-trust2026-demo --required-reports 2
+      - run: python -m opentrace benchmark --max-hops 2 --max-tree-depth 2 --repeats 1 --out artifacts/benchmark.json
+      - run: python -m opentrace compare --message-size 32 --hops 2 --tree-depth 2 --branching-factor 2 --repeats 1 --out artifacts/protocol-comparison.json --markdown artifacts/protocol-comparison.md
+
+      - name: Validate generated benchmark and comparison reports
+        run: python -c "import json,pathlib,jsonschema; b=json.loads(pathlib.Path('artifacts/benchmark.json').read_text(encoding='utf-8')); bs=json.loads(pathlib.Path('schemas/benchmark-report.schema.json').read_text(encoding='utf-8')); jsonschema.validate(b,bs); c=json.loads(pathlib.Path('artifacts/protocol-comparison.json').read_text(encoding='utf-8')); cs=json.loads(pathlib.Path('schemas/protocol-comparison.schema.json').read_text(encoding='utf-8')); jsonschema.validate(c,cs); assert c['summary']['protocol_count']==5, c['summary']; assert c['summary']['interoperable_protocols']==[], c['summary']; assert c['summary']['all_correct'] is True, c['summary']"
+
+  packaging:
+    name: Build and validate distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python scripts/build_release.py
+      - name: Smoke-test wheel in a clean virtual environment
+        shell: bash
+        run: |
+          python -m venv .wheel-smoke
+          .wheel-smoke/bin/python -m pip install dist/*.whl
+          .wheel-smoke/bin/e2ee-traceability --help
+          .wheel-smoke/bin/python -m opentrace --help
+          .wheel-smoke/bin/python -m pip check
+          .wheel-smoke/bin/e2ee-traceability demo --out artifacts/wheel-demo-case
+          .wheel-smoke/bin/e2ee-traceability verify artifacts/wheel-demo-case
+          .wheel-smoke/bin/e2ee-traceability compare --message-size 32 --hops 2 --tree-depth 2 --branching-factor 2 --repeats 1 --out artifacts/wheel-comparison.json --markdown artifacts/wheel-comparison.md
+          python -c "import json,pathlib,jsonschema; p=json.loads(pathlib.Path('artifacts/wheel-comparison.json').read_text(encoding='utf-8')); s=json.loads(pathlib.Path('schemas/protocol-comparison.schema.json').read_text(encoding='utf-8')); jsonschema.validate(p,s); assert p['summary']['protocol_count']==5; assert p['summary']['interoperable_protocols']==[]"
+      - name: Smoke-test source distribution in a clean virtual environment
+        shell: bash
+        run: |
+          python -m venv .sdist-smoke
+          .sdist-smoke/bin/python -m pip install dist/*.tar.gz
+          .sdist-smoke/bin/e2ee-traceability --help
+          .sdist-smoke/bin/python -m opentrace --help
+          .sdist-smoke/bin/python -m pip check
+          .sdist-smoke/bin/e2ee-traceability demo --out artifacts/sdist-demo-case
+          .sdist-smoke/bin/e2ee-traceability verify artifacts/sdist-demo-case
+          .sdist-smoke/bin/e2ee-traceability compare --message-size 32 --hops 2 --tree-depth 2 --branching-factor 2 --repeats 1 --out artifacts/sdist-comparison.json --markdown artifacts/sdist-comparison.md
+          python -c "import json,pathlib,jsonschema; p=json.loads(pathlib.Path('artifacts/sdist-comparison.json').read_text(encoding='utf-8')); s=json.loads(pathlib.Path('schemas/protocol-comparison.schema.json').read_text(encoding='utf-8')); jsonschema.validate(p,s); assert p['summary']['protocol_count']==5; assert p['summary']['interoperable_protocols']==[]"

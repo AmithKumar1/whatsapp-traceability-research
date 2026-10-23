@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opentrace:schema:merkle:inclusion:proof:1",
+  "title": "WhatsApp Traceability Research Lab offline Merkle inclusion proof (unsigned root)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proof_version",
+    "hash_algorithm",
+    "tree_size",
+    "leaf_index",
+    "leaf_sha256",
+    "root_sha256",
+    "audit_path",
+    "format_note"
+  ],
+  "properties": {
+    "proof_version": {
+      "const": "1"
+    },
+    "hash_algorithm": {
+      "const": "SHA-256"
+    },
+    "tree_size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "leaf_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "leaf_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "root_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "audit_path": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "side",
+          "hash"
+        ],
+        "properties": {
+          "side": {
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ]
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "format_note": {
+      "type": "string"
+    }
+  }
+}

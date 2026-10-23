@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opentrace:schema:trace:event:0.2",
+  "title": "WhatsApp Traceability Research Lab v0.2 trace event (synthetic / evidence-backed event model)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "actor_id",
+    "timestamp",
+    "time_source",
+    "parent_event_id",
+    "content_ref",
+    "evidence_class"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "event_type": {
+      "enum": [
+        "ORIGIN",
+        "FORWARD",
+        "DELIVER",
+        "REPORT"
+      ]
+    },
+    "actor_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "Credential/pseudonym reference; not a real-world human identity by itself."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "time_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_event_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "content_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_class": {
+      "enum": [
+        "synthetic",
+        "observed",
+        "provider_attested",
+        "protocol_verified",
+        "inferred",
+        "unknown"
+      ]
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proof_ref": {
+      "type": "string"
+    },
+    "credential_id": {
+      "type": "string"
+    },
+    "sequence": {
+      "type": "string"
+    },
+    "uncertainty_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "claim_status": {
+      "enum": [
+        "observed",
+        "integrity_verified",
+        "protocol_verified",
+        "inferred",
+        "unknown",
+        "synthetic"
+      ]
+    }
+  }
+}

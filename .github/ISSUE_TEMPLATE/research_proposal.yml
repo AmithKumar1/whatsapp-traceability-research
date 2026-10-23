@@ -1,0 +1,35 @@
+name: Research proposal
+description: Propose a protocol reproduction, evaluation method, or cryptographic design review.
+title: "[Research]: "
+labels: [research, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Separate published claims from your proposed changes. Do not include sensitive case material. Protocol implementations require threat-model and security-property review before any integration.
+  - type: input
+    id: source
+    attributes:
+      label: Paper, specification, or reference implementation
+      description: Provide a public DOI, RFC, arXiv/ePrint URL, or public repository.
+    validations:
+      required: true
+  - type: textarea
+    id: claim
+    attributes:
+      label: Specific claim to reproduce or test
+    validations:
+      required: true
+  - type: textarea
+    id: assumptions
+    attributes:
+      label: Threat model and assumptions
+    validations:
+      required: true
+  - type: textarea
+    id: evaluation
+    attributes:
+      label: Proposed reproducible evaluation
+      description: Include metrics, baselines, adversarial cases, and environment details.
+    validations:
+      required: true

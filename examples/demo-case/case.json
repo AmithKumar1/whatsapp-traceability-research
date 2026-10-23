@@ -1,0 +1,12 @@
+{
+  "case_id": "SYNTHETIC-CASE-001",
+  "scope": "synthetic-demonstration-only",
+  "authorization": {
+    "status": "NOT_APPLICABLE_SYNTHETIC",
+    "note": "This generated dataset contains no real communications and is not a valid investigative authorization."
+  },
+  "reported_event_id": "evt-004",
+  "requested_mode": "ORIGIN_ONLY",
+  "source_identity_model": "synthetic pseudonymous actor IDs only",
+  "created_by_tool_version": "0.5.2"
+}

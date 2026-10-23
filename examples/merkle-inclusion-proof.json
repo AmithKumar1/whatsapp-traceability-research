@@ -1,0 +1,23 @@
+{
+  "proof_version": "1",
+  "hash_algorithm": "SHA-256",
+  "tree_size": 7,
+  "leaf_index": 2,
+  "leaf_sha256": "f3949a1a93e2d1c4fb92dc2ec7285e2056b46801006106534a0b55c6b8a33e06",
+  "root_sha256": "21daddc0f210c476531ac85be13cc3743fe4b81c1beafe4207b411bef74b7e63",
+  "audit_path": [
+    {
+      "side": "RIGHT",
+      "hash": "612f808d44744890664313ae5803e7fcfdabc3594db1cf50315377d4a63d9940"
+    },
+    {
+      "side": "LEFT",
+      "hash": "997dcbe47c593f9feae66c801242c674f16f87eb5fb16416464f9a50135f2a0f"
+    },
+    {
+      "side": "RIGHT",
+      "hash": "31452785523fdf09fe57ba87e1d414241c3895cf416c78f405a1ebfc44a3f953"
+    }
+  ],
+  "format_note": "Offline WhatsApp Traceability Research Lab proof using RFC 9162 leaf/node domain separation; no signed tree head is included."
+}

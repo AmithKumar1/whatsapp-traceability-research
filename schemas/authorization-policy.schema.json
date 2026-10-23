@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opentrace:schema:authorization:policy:1",
+  "title": "WhatsApp Traceability Research Lab local authorization policy",
+  "type": "object",
+  "required": [
+    "policy_id",
+    "min_approvals",
+    "required_roles",
+    "require_distinct_trust_domains",
+    "allowed_modes",
+    "max_validity_seconds"
+  ],
+  "properties": {
+    "policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "min_approvals": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "required_roles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "require_distinct_trust_domains": {
+      "type": "boolean"
+    },
+    "allowed_modes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ORIGIN_ONLY",
+          "PATH",
+          "TREE"
+        ]
+      }
+    },
+    "max_validity_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 604800
+    }
+  },
+  "additionalProperties": false
+}

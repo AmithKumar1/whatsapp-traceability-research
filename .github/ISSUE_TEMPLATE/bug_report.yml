@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a reproducible bug in the WhatsApp Traceability Research Lab research prototype.
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include real people's messages, phone numbers, account identifiers, case details, private keys, or non-public evidence.
+  - type: input
+    id: version
+    attributes:
+      label: WhatsApp Traceability Research Lab version
+      placeholder: 0.5.2
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: 3.12.x
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal synthetic reproduction
+      description: Include synthetic inputs and exact commands only.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and traceback
+    validations:
+      required: true

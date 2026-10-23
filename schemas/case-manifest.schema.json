@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opentrace:schema:case:manifest:0.2",
+  "title": "WhatsApp Traceability Research Lab v0.2 signed evidence manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "manifest_version",
+    "case_id",
+    "created_at",
+    "signing_algorithm",
+    "signing_key_fingerprint",
+    "digest_algorithm",
+    "canonicalization",
+    "record_count",
+    "records",
+    "head_record_hash",
+    "trust_note"
+  ],
+  "properties": {
+    "format": {
+      "const": "opentrace-evidence-manifest"
+    },
+    "manifest_version": {
+      "const": "0.2"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "signing_algorithm": {
+      "const": "Ed25519"
+    },
+    "signing_key_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "digest_algorithm": {
+      "const": "SHA-256"
+    },
+    "canonicalization": {
+      "const": "OpenTrace restricted canonical JSON profile v0.2; see docs/CRYPTO_DECISIONS.md"
+    },
+    "record_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "record_kind",
+          "classification",
+          "size_bytes",
+          "sha256",
+          "previous_record_hash",
+          "record_hash"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "record_kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "classification": {
+            "type": "string",
+            "minLength": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "previous_record_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "record_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "head_record_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trust_note": {
+      "type": "string"
+    }
+  }
+}

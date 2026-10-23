@@ -1,0 +1,42 @@
+{
+  "benchmark_name": "e2ee-traceability-lab-offline-merkle-microbenchmark",
+  "benchmark_version": "1",
+  "scope": "Local synthetic SHA-256/Merkle helper only; no tracing-protocol performance claim.",
+  "environment": {
+    "python": "3.13.5",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.41"
+  },
+  "repeats": 5,
+  "results": [
+    {
+      "entry_count": 10,
+      "entry_bytes_each": 56,
+      "root_median_ms": 0.0131,
+      "proof_build_median_ms": 0.0195,
+      "proof_verify_median_ms": 0.0092,
+      "proof_json_bytes": 746,
+      "root_sha256": "b1c89e56e750df52677b4dc47877f187af5f3634bff87da0f6d9b4abb094765d",
+      "all_self_checks_passed": true
+    },
+    {
+      "entry_count": 100,
+      "entry_bytes_each": 56,
+      "root_median_ms": 0.1179,
+      "proof_build_median_ms": 0.1738,
+      "proof_verify_median_ms": 0.0114,
+      "proof_json_bytes": 1020,
+      "root_sha256": "78e22b13c990d5dae7ab61003902015178c9fd45059b8e2e28d3b4f33189b7a8",
+      "all_self_checks_passed": true
+    },
+    {
+      "entry_count": 1000,
+      "entry_bytes_each": 56,
+      "root_median_ms": 1.3397,
+      "proof_build_median_ms": 1.9348,
+      "proof_verify_median_ms": 0.0197,
+      "proof_json_bytes": 1292,
+      "root_sha256": "2494e97bd65f083d1d2d9591dc1e92cb57c5d716f7143b1bf6f9c8d3694130ca",
+      "all_self_checks_passed": true
+    }
+  ]
+}

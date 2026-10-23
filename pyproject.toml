@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools==82.0.1", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "e2ee-traceability-lab"
+version = "0.5.2"
+description = "Independent research and evaluation framework for traceability and evidence integrity in end-to-end encrypted messaging; not affiliated with WhatsApp"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "WhatsApp Traceability Research Lab contributors"}]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security :: Cryptography",
+]
+dependencies = ["cryptography>=44.0"]
+
+[project.urls]
+Repository = "https://github.com/AmithKumar1/whatsapp-traceability-research"
+Issues = "https://github.com/AmithKumar1/whatsapp-traceability-research/issues"
+Discussions = "https://github.com/AmithKumar1/whatsapp-traceability-research/discussions"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "jsonschema>=4.20"]
+
+[project.scripts]
+e2ee-traceability = "opentrace.cli:main"
+opentrace = "opentrace.cli:main" # legacy command retained during the alpha stage
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

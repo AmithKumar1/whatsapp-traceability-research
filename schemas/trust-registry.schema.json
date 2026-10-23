@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opentrace:schema:trust:registry:1",
+  "title": "WhatsApp Traceability Research Lab trusted approval-principal registry",
+  "type": "object",
+  "required": [
+    "registry_version",
+    "principals"
+  ],
+  "properties": {
+    "registry_version": {
+      "const": "1"
+    },
+    "notice": {
+      "type": "string"
+    },
+    "principals": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "trust_domain",
+          "public_key_path",
+          "public_key_fingerprint"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trust_domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "public_key_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "public_key_fingerprint": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "maxProperties": 1000
+    }
+  },
+  "additionalProperties": false
+}

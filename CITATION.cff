@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use WhatsApp Traceability Research Lab in research, please cite the software and the specific protocol papers reproduced in your work."
+title: "WhatsApp Traceability Research Lab: Privacy-Preserving Traceability Research for Encrypted Messaging"
+type: software
+authors:
+  - name: "WhatsApp Traceability Research Lab contributors"
+version: 0.5.2
+license: MIT
+repository-code: https://github.com/AmithKumar1/whatsapp-traceability-research
+abstract: >-
+  WhatsApp Traceability Research Lab is an alpha-stage research and evaluation framework for studying
+  privacy-preserving source tracing in end-to-end encrypted messaging. It
+  provides synthetic graph demonstrations, signed evidence manifests, a
+  configurable multi-approver policy laboratory, an offline Merkle inclusion
+  proof laboratory, synthetic path/tree research adapters, a shared benchmark
+  harness, schemas, tests, and reproducibility documentation. The adapters are
+  not yet interoperable reproductions of the referenced cryptographic protocols
+  and do not integrate with WhatsApp.

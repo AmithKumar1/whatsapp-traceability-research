@@ -1,0 +1,69 @@
+{
+  "format": "opentrace-evidence-manifest",
+  "manifest_version": "0.2",
+  "case_id": "SYNTHETIC-CASE-001",
+  "created_at": "2026-10-23T15:28:01Z",
+  "signing_algorithm": "Ed25519",
+  "signing_key_fingerprint": "1b24bcfc773069cbf3494e4fadae0152193a59f9ee8100cfcfd9d0fdd67ad93d",
+  "digest_algorithm": "SHA-256",
+  "canonicalization": "OpenTrace restricted canonical JSON profile v0.2; see docs/CRYPTO_DECISIONS.md",
+  "record_count": 6,
+  "records": [
+    {
+      "path": "case.json",
+      "record_kind": "case-metadata",
+      "classification": "synthetic",
+      "size_bytes": 441,
+      "sha256": "d185522803c612b0c56a13b934ea78f93975285e61bd68ca2b67c070e88d61cc",
+      "previous_record_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "record_hash": "57864a6f55d380836b1c69d117dcb423d4750cfad770fec8428915d4cc4e83a6"
+    },
+    {
+      "path": "events.json",
+      "record_kind": "source-events",
+      "classification": "synthetic",
+      "size_bytes": 1760,
+      "sha256": "57da8443cf874bf8cb56bda8ed3b7b4ac8bddb95fb4bcc5eb41f706e9a9ef576",
+      "previous_record_hash": "57864a6f55d380836b1c69d117dcb423d4750cfad770fec8428915d4cc4e83a6",
+      "record_hash": "d0aaec3cf370df14218b391d4c4023a9bdc6804e6fde5b0e1d85fa3b14334344"
+    },
+    {
+      "path": "report.md",
+      "record_kind": "human-readable-report",
+      "classification": "synthetic-derived",
+      "size_bytes": 1253,
+      "sha256": "b654f2665fc526a359129b9989028b223fc1448e1f9ab535ab0722a3c8ea6948",
+      "previous_record_hash": "d0aaec3cf370df14218b391d4c4023a9bdc6804e6fde5b0e1d85fa3b14334344",
+      "record_hash": "a55aed6b0c6be302ec53b84f32cac292e72ee6a305e6ea7b98c0239a45dffe63"
+    },
+    {
+      "path": "trace-path-demo.json",
+      "record_kind": "derived-path-demo",
+      "classification": "synthetic-derived",
+      "size_bytes": 2425,
+      "sha256": "13e113630b53550a9cfc2b1e29b16683c6b46271c11e7f7f7b5933ab8723c4b3",
+      "previous_record_hash": "a55aed6b0c6be302ec53b84f32cac292e72ee6a305e6ea7b98c0239a45dffe63",
+      "record_hash": "623eca7ee2da8e53733fc2f4b3d3e27c026f911e3a7e5d6b9ee7d22be35cbfc6"
+    },
+    {
+      "path": "trace-tree-demo.json",
+      "record_kind": "derived-tree-demo",
+      "classification": "synthetic-derived",
+      "size_bytes": 3045,
+      "sha256": "0aac36e8ac4c5f53991c75534e6bebf1ef547c8fd8a50926842052fcdda69e94",
+      "previous_record_hash": "623eca7ee2da8e53733fc2f4b3d3e27c026f911e3a7e5d6b9ee7d22be35cbfc6",
+      "record_hash": "d9fcdd914dfcef7ab0e47e56699df5b9ff69c805d1e96043e1be4b7c8493348f"
+    },
+    {
+      "path": "trace.json",
+      "record_kind": "derived-origin-only-report",
+      "classification": "synthetic-derived",
+      "size_bytes": 1155,
+      "sha256": "437c6c4eda14650c5dc295fe364e5ba99883281da603430dc47d209e3cca3e4f",
+      "previous_record_hash": "d9fcdd914dfcef7ab0e47e56699df5b9ff69c805d1e96043e1be4b7c8493348f",
+      "record_hash": "e6e00ef1ffb1bf168d428e8a720155db422523d2a6ac3f39816e1cf18dada518"
+    }
+  ],
+  "head_record_hash": "e6e00ef1ffb1bf168d428e8a720155db422523d2a6ac3f39816e1cf18dada518",
+  "trust_note": "A bundled public key is not an independent trust anchor. Obtain the expected key fingerprint through a separate trusted channel. The canonical JSON profile rejects floating-point values and is not a complete RFC 8785 implementation."
+}

@@ -1,0 +1,66 @@
+{
+  "report_version": "0.1",
+  "mode": "PATH",
+  "case_disclaimer": "Synthetic data only. This report demonstrates graph traversal; it is not a cryptographic traceback protocol, WhatsApp integration, or real-world identity proof.",
+  "reported_event_id": "evt-004",
+  "content_ref": "content:demo-001",
+  "first_originator_candidate": {
+    "actor_id": "acct:synthetic-A",
+    "basis": "explicit synthetic ORIGIN event at the root of the supplied parent graph",
+    "status": "synthetic-only; not an identity claim",
+    "event": {
+      "event_id": "evt-001",
+      "event_type": "ORIGIN",
+      "actor_id": "acct:synthetic-A",
+      "timestamp": "2026-10-23T08:30:00Z",
+      "time_source": "simulated-client-clock",
+      "parent_event_id": null,
+      "content_ref": "content:demo-001",
+      "evidence_class": "synthetic"
+    }
+  },
+  "disclosure_notice": "The synthetic origin-to-reported-event path is disclosed; sibling branches are omitted.",
+  "timestamp_warning": "Timestamps are copied from the input and labelled with their source. Their order is not proof of wall-clock order unless corroborated by a trusted source.",
+  "reported_path_oldest_to_newest": [
+    {
+      "event_id": "evt-001",
+      "event_type": "ORIGIN",
+      "actor_id": "acct:synthetic-A",
+      "timestamp": "2026-10-23T08:30:00Z",
+      "time_source": "simulated-client-clock",
+      "parent_event_id": null,
+      "content_ref": "content:demo-001",
+      "evidence_class": "synthetic"
+    },
+    {
+      "event_id": "evt-002",
+      "event_type": "FORWARD",
+      "actor_id": "acct:synthetic-B",
+      "timestamp": "2026-10-23T08:31:12Z",
+      "time_source": "simulated-client-clock",
+      "parent_event_id": "evt-001",
+      "content_ref": "content:demo-001",
+      "evidence_class": "synthetic"
+    },
+    {
+      "event_id": "evt-003",
+      "event_type": "FORWARD",
+      "actor_id": "acct:synthetic-C",
+      "timestamp": "2026-10-23T08:33:41Z",
+      "time_source": "simulated-client-clock",
+      "parent_event_id": "evt-002",
+      "content_ref": "content:demo-001",
+      "evidence_class": "synthetic"
+    },
+    {
+      "event_id": "evt-004",
+      "event_type": "REPORT",
+      "actor_id": "acct:synthetic-D",
+      "timestamp": "2026-10-23T08:40:09Z",
+      "time_source": "simulated-client-clock",
+      "parent_event_id": "evt-003",
+      "content_ref": "content:demo-001",
+      "evidence_class": "synthetic"
+    }
+  ]
+}

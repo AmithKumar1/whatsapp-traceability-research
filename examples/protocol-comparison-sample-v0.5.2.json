@@ -1,0 +1,330 @@
+{
+  "schema": "opentrace.protocol-comparison.v1",
+  "opentrace_version": "0.5.2",
+  "generated_at_utc": "2026-10-23T14:30:18Z",
+  "scenario": {
+    "message_bytes": 256,
+    "linear_hops": 8,
+    "tree_depth": 3,
+    "branching_factor": 2,
+    "repeats": 5
+  },
+  "records": [
+    {
+      "protocol_id": "traceback2019-synthetic-path",
+      "reference_status": "synthetic",
+      "capabilities": {
+        "finds_source": true,
+        "reveals_intermediate_hops": true,
+        "reveals_full_forwarding_tree": false,
+        "complaint_based": false,
+        "disclosure_mode": "path",
+        "default_disclosure": "recipient_to_origin_path",
+        "metadata_surface": "forwarding-path-linked server state",
+        "collusion_model": "synthetic server state is trusted for the experiment",
+        "authorization_model": "out_of_band"
+      },
+      "measurements": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 9,
+        "edges_recovered": 8,
+        "construction_ns_median": 93471,
+        "trace_ns_median": 60491,
+        "proof_or_trace_bytes": 61,
+        "storage_entries": 8
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 9,
+        "edges_recovered": 8,
+        "node_disclosure_fraction": 1.0
+      },
+      "samples_ns": {
+        "construction": [
+          1671237,
+          100361,
+          93471,
+          91548,
+          90917
+        ],
+        "trace": [
+          87442,
+          62775,
+          59710,
+          60491,
+          59991
+        ]
+      },
+      "caveat": "Synthetic research adapter; not wire-compatible with the cited paper or a deployed messenger."
+    },
+    {
+      "protocol_id": "traceback2019-synthetic-tree",
+      "reference_status": "synthetic",
+      "capabilities": {
+        "finds_source": true,
+        "reveals_intermediate_hops": true,
+        "reveals_full_forwarding_tree": true,
+        "complaint_based": false,
+        "disclosure_mode": "full_synthetic_forwarding_tree",
+        "default_disclosure": "full_tree_for_demo",
+        "metadata_surface": "forwarding-tree-linked server state",
+        "collusion_model": "synthetic server state is trusted for the experiment",
+        "authorization_model": "out_of_band"
+      },
+      "measurements": {
+        "correct": true,
+        "scenario_nodes": 15,
+        "nodes_recovered": 15,
+        "edges_recovered": 14,
+        "construction_ns_median": 450608,
+        "trace_ns_median": 204959,
+        "proof_or_trace_bytes": 380,
+        "storage_entries": 14,
+        "expected_edges": 14
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 15,
+        "nodes_recovered": 15,
+        "edges_recovered": 14,
+        "node_disclosure_fraction": 1.0
+      },
+      "samples_ns": {
+        "construction": [
+          504490,
+          450608,
+          438040,
+          448816,
+          460414
+        ],
+        "trace": [
+          204959,
+          211659,
+          191739,
+          190627,
+          207242
+        ]
+      },
+      "caveat": "Synthetic research adapter; not wire-compatible with the cited paper or a deployed messenger."
+    },
+    {
+      "protocol_id": "source-tracking2021-synthetic",
+      "reference_status": "synthetic",
+      "capabilities": {
+        "finds_source": true,
+        "reveals_intermediate_hops": false,
+        "reveals_full_forwarding_tree": false,
+        "complaint_based": true,
+        "disclosure_mode": "source_only",
+        "default_disclosure": "source_only",
+        "metadata_surface": "source receipt and complaint token",
+        "collusion_model": "synthetic authority key is trusted for the experiment",
+        "authorization_model": "synthetic complaint"
+      },
+      "measurements": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 1,
+        "edges_recovered": 0,
+        "construction_ns_median": 3806,
+        "trace_ns_median": 1463,
+        "complaint_ns_median": 571,
+        "proof_or_trace_bytes": 60,
+        "storage_entries": 1
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 1,
+        "edges_recovered": 0,
+        "node_disclosure_fraction": 0.111111
+      },
+      "samples_ns": {
+        "issue": [
+          34391,
+          5769,
+          3806,
+          2875,
+          2925
+        ],
+        "complaint": [
+          1723,
+          941,
+          571,
+          481,
+          461
+        ],
+        "trace": [
+          5268,
+          2454,
+          1463,
+          1151,
+          1252
+        ]
+      },
+      "caveat": "Synthetic research adapter; not wire-compatible with the cited paper or a deployed messenger."
+    },
+    {
+      "protocol_id": "hts-2025-synthetic",
+      "reference_status": "synthetic",
+      "capabilities": {
+        "finds_source": true,
+        "reveals_intermediate_hops": false,
+        "reveals_full_forwarding_tree": false,
+        "complaint_based": false,
+        "disclosure_mode": "source_only_after_hop_threshold",
+        "default_disclosure": "source_only_when_trace_threshold_met",
+        "metadata_surface": "threshold parameters and didactic opaque-payload proxy",
+        "collusion_model": "paper studies malicious servers; current model has no cryptographic adversary simulation",
+        "authorization_model": "hop-threshold eligibility model; not an authorization system"
+      },
+      "measurements": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 1,
+        "edges_recovered": 0,
+        "construction_ns_median": 591,
+        "trace_ns_median": 2544,
+        "proof_or_trace_bytes": 112,
+        "storage_entries": 0,
+        "trace_eligible": true,
+        "anonymity_threshold_hops": 2,
+        "trace_threshold_hops": 4,
+        "threshold_gap_hops": 2,
+        "succinctness_result_from_paper_model": "paper_positive_result_gap_at_least_two_succinctness_possible_under_assumptions",
+        "didactic_payload_size_proxy_bytes": 48
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 1,
+        "edges_recovered": 0,
+        "node_disclosure_fraction": 0.111111
+      },
+      "samples_ns": {
+        "construction": [
+          1743,
+          1292,
+          591,
+          311,
+          330
+        ],
+        "trace": [
+          7091,
+          3505,
+          2544,
+          2153,
+          2263
+        ]
+      },
+      "caveat": "Synthetic research adapter; not wire-compatible with the cited paper or a deployed messenger."
+    },
+    {
+      "protocol_id": "minimal-trust-2026-synthetic",
+      "reference_status": "synthetic",
+      "capabilities": {
+        "finds_source": true,
+        "reveals_intermediate_hops": false,
+        "reveals_full_forwarding_tree": false,
+        "complaint_based": true,
+        "disclosure_mode": "source_only_after_policy_gates",
+        "default_disclosure": "source_only_after_all_policy_gates",
+        "metadata_surface": "report threshold, regulator blocklist decision, moderator approval, and platform release gate",
+        "collusion_model": "illustrates paper's one-honest-participant model; no cryptographic enforcement implemented",
+        "authorization_model": "multi-party policy-gate simulation"
+      },
+      "measurements": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 1,
+        "edges_recovered": 0,
+        "construction_ns_median": 180,
+        "trace_ns_median": 3895,
+        "proof_or_trace_bytes": 86,
+        "storage_entries": 0,
+        "valid_case_trace_allowed": true,
+        "innocent_case_trace_blocked": true,
+        "required_reports": 3,
+        "policy_gates": [
+          "verified_distinct_report_threshold",
+          "regulator_blocklist_match",
+          "moderator_approval",
+          "platform_release_authorization"
+        ],
+        "single_honest_role_scenarios": [
+          {
+            "sole_honest_role": "platform",
+            "innocent_message_trace_blocked": true,
+            "failed_gates": [
+              "platform_release_not_authorized"
+            ],
+            "model_caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+          },
+          {
+            "sole_honest_role": "regulator",
+            "innocent_message_trace_blocked": true,
+            "failed_gates": [
+              "regulator_blocklist_match_missing"
+            ],
+            "model_caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+          },
+          {
+            "sole_honest_role": "moderator",
+            "innocent_message_trace_blocked": true,
+            "failed_gates": [
+              "moderator_approval_missing"
+            ],
+            "model_caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+          },
+          {
+            "sole_honest_role": "recipient",
+            "innocent_message_trace_blocked": true,
+            "failed_gates": [
+              "report_threshold_not_met"
+            ],
+            "model_caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+          }
+        ]
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 1,
+        "edges_recovered": 0,
+        "node_disclosure_fraction": 0.111111
+      },
+      "samples_ns": {
+        "construction": [
+          290,
+          481,
+          180,
+          120,
+          140
+        ],
+        "trace": [
+          13110,
+          4497,
+          3895,
+          3084,
+          3005
+        ]
+      },
+      "caveat": "Synthetic research adapter; not wire-compatible with the cited paper or a deployed messenger."
+    }
+  ],
+  "summary": {
+    "protocol_count": 5,
+    "all_correct": true,
+    "source_only_protocols": [
+      "source-tracking2021-synthetic",
+      "hts-2025-synthetic",
+      "minimal-trust-2026-synthetic"
+    ],
+    "tree_disclosing_protocols": [
+      "traceback2019-synthetic-tree"
+    ],
+    "interoperable_protocols": []
+  }
+}

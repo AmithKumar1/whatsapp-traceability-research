@@ -1,0 +1,483 @@
+{
+  "schema": "opentrace.benchmark.v1",
+  "opentrace_version": "0.5.2",
+  "generated_at_utc": "2026-10-23T14:30:17Z",
+  "environment": {
+    "python": "3.13.5",
+    "implementation": "CPython",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.41"
+  },
+  "method": {
+    "timing_clock": "time.perf_counter_ns",
+    "summary": "median/min/max over fresh synthetic workload runs",
+    "message_content": "repeated synthetic byte M; message body not written to report",
+    "identities": "synthetic sequential integer identifiers only",
+    "protocol_status": "research adapter; not reference-interoperable; not production-certified"
+  },
+  "warnings": [
+    "All workload data and identifiers are synthetic.",
+    "Timings depend on this machine, runtime, load, and cryptographic library version.",
+    "serialized_trace_bytes measures this report's compact JSON representation, not protocol wire bytes.",
+    "state_entries is the in-memory adapter entry count, not an on-disk or provider storage estimate.",
+    "Path and tree results have different workload shapes; do not interpret cross-topology timings as a controlled protocol contest."
+  ],
+  "records": [
+    {
+      "protocol": "traceback2019-synthetic-path",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "linear",
+        "hops": 1,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 16175,
+        "construction_ns_min": 13390,
+        "construction_ns_max": 1330675,
+        "trace_ns_median": 12429,
+        "trace_ns_min": 10977,
+        "trace_ns_max": 31888,
+        "state_entries": 1,
+        "serialized_trace_bytes": 47
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 2,
+        "nodes_recovered": 2,
+        "edges_recovered": 1,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "path"
+      },
+      "samples_ns": {
+        "construction": [
+          1330675,
+          26570,
+          16175,
+          13621,
+          13390
+        ],
+        "trace": [
+          31888,
+          14662,
+          12429,
+          10977,
+          11147
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-path",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "linear",
+        "hops": 2,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 25128,
+        "construction_ns_min": 24567,
+        "construction_ns_max": 29745,
+        "trace_ns_median": 18207,
+        "trace_ns_min": 17737,
+        "trace_ns_max": 21602,
+        "state_entries": 2,
+        "serialized_trace_bytes": 49
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 3,
+        "nodes_recovered": 3,
+        "edges_recovered": 2,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "path"
+      },
+      "samples_ns": {
+        "construction": [
+          29745,
+          27231,
+          24567,
+          24627,
+          25128
+        ],
+        "trace": [
+          21602,
+          18147,
+          18257,
+          18207,
+          17737
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-path",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "linear",
+        "hops": 4,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 46921,
+        "construction_ns_min": 46500,
+        "construction_ns_max": 48883,
+        "trace_ns_median": 31848,
+        "trace_ns_min": 31567,
+        "trace_ns_max": 32088,
+        "state_entries": 4,
+        "serialized_trace_bytes": 53
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 5,
+        "nodes_recovered": 5,
+        "edges_recovered": 4,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "path"
+      },
+      "samples_ns": {
+        "construction": [
+          48883,
+          47752,
+          46921,
+          46500,
+          46871
+        ],
+        "trace": [
+          32008,
+          31688,
+          32088,
+          31567,
+          31848
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-path",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "linear",
+        "hops": 8,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 93781,
+        "construction_ns_min": 93070,
+        "construction_ns_max": 94662,
+        "trace_ns_median": 60932,
+        "trace_ns_min": 60702,
+        "trace_ns_max": 83546,
+        "state_entries": 8,
+        "serialized_trace_bytes": 61
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 9,
+        "nodes_recovered": 9,
+        "edges_recovered": 8,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "path"
+      },
+      "samples_ns": {
+        "construction": [
+          93781,
+          94662,
+          93070,
+          93831,
+          93220
+        ],
+        "trace": [
+          83546,
+          61523,
+          60932,
+          60702,
+          60912
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-tree",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "complete_tree",
+        "depth": 1,
+        "branching_factor": 2,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 73531,
+        "construction_ns_min": 67072,
+        "construction_ns_max": 104397,
+        "trace_ns_median": 43997,
+        "trace_ns_min": 42223,
+        "trace_ns_max": 51357,
+        "state_entries": 2,
+        "serialized_trace_bytes": 93
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 3,
+        "nodes_recovered": 3,
+        "edges_recovered": 2,
+        "expected_edges": 2,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "full_synthetic_forwarding_tree"
+      },
+      "samples_ns": {
+        "construction": [
+          104397,
+          73531,
+          88884,
+          68233,
+          67072
+        ],
+        "trace": [
+          51357,
+          46671,
+          43997,
+          42223,
+          42744
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-tree",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "complete_tree",
+        "depth": 1,
+        "branching_factor": 3,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 100852,
+        "construction_ns_min": 98348,
+        "construction_ns_max": 130927,
+        "trace_ns_median": 54983,
+        "trace_ns_min": 53861,
+        "trace_ns_max": 71257,
+        "state_entries": 3,
+        "serialized_trace_bytes": 117
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 4,
+        "nodes_recovered": 4,
+        "edges_recovered": 3,
+        "expected_edges": 3,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "full_synthetic_forwarding_tree"
+      },
+      "samples_ns": {
+        "construction": [
+          100852,
+          130927,
+          102154,
+          99149,
+          98348
+        ],
+        "trace": [
+          54983,
+          54523,
+          55844,
+          71257,
+          53861
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-tree",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "complete_tree",
+        "depth": 2,
+        "branching_factor": 2,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 195585,
+        "construction_ns_min": 192520,
+        "construction_ns_max": 197257,
+        "trace_ns_median": 99400,
+        "trace_ns_min": 98348,
+        "trace_ns_max": 117357,
+        "state_entries": 6,
+        "serialized_trace_bytes": 187
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 7,
+        "nodes_recovered": 7,
+        "edges_recovered": 6,
+        "expected_edges": 6,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "full_synthetic_forwarding_tree"
+      },
+      "samples_ns": {
+        "construction": [
+          195585,
+          194824,
+          192520,
+          196286,
+          197257
+        ],
+        "trace": [
+          98879,
+          98348,
+          117357,
+          100001,
+          99400
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-tree",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "complete_tree",
+        "depth": 2,
+        "branching_factor": 3,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 398530,
+        "construction_ns_min": 387534,
+        "construction_ns_max": 419362,
+        "trace_ns_median": 161873,
+        "trace_ns_min": 160802,
+        "trace_ns_max": 178249,
+        "state_entries": 12,
+        "serialized_trace_bytes": 333
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 13,
+        "nodes_recovered": 13,
+        "edges_recovered": 12,
+        "expected_edges": 12,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "full_synthetic_forwarding_tree"
+      },
+      "samples_ns": {
+        "construction": [
+          419362,
+          387534,
+          398530,
+          412491,
+          395185
+        ],
+        "trace": [
+          162164,
+          160802,
+          161873,
+          178249,
+          161814
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-tree",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "complete_tree",
+        "depth": 3,
+        "branching_factor": 2,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 466773,
+        "construction_ns_min": 446112,
+        "construction_ns_max": 862570,
+        "trace_ns_median": 195815,
+        "trace_ns_min": 192550,
+        "trace_ns_max": 229746,
+        "state_entries": 14,
+        "serialized_trace_bytes": 380
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 15,
+        "nodes_recovered": 15,
+        "edges_recovered": 14,
+        "expected_edges": 14,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "full_synthetic_forwarding_tree"
+      },
+      "samples_ns": {
+        "construction": [
+          492512,
+          446112,
+          459633,
+          862570,
+          466773
+        ],
+        "trace": [
+          195885,
+          195815,
+          192550,
+          229746,
+          193742
+        ]
+      }
+    },
+    {
+      "protocol": "traceback2019-synthetic-tree",
+      "interoperable_with_reference": false,
+      "workload": {
+        "kind": "complete_tree",
+        "depth": 3,
+        "branching_factor": 3,
+        "message_bytes": 256
+      },
+      "measurements": {
+        "repeats": 5,
+        "construction_ns_median": 1263794,
+        "construction_ns_min": 1248900,
+        "construction_ns_max": 1377605,
+        "trace_ns_median": 462376,
+        "trace_ns_min": 441034,
+        "trace_ns_max": 467264,
+        "state_entries": 39,
+        "serialized_trace_bytes": 999
+      },
+      "outcome": {
+        "correct": true,
+        "scenario_nodes": 40,
+        "nodes_recovered": 40,
+        "edges_recovered": 39,
+        "expected_edges": 39,
+        "node_disclosure_fraction": 1.0,
+        "disclosure_mode": "full_synthetic_forwarding_tree"
+      },
+      "samples_ns": {
+        "construction": [
+          1263794,
+          1377605,
+          1253939,
+          1248900,
+          1300920
+        ],
+        "trace": [
+          462376,
+          467264,
+          441034,
+          459642,
+          465201
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "record_count": 10,
+    "correct_record_count": 10,
+    "all_correct": true
+  }
+}
