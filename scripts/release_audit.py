@@ -128,6 +128,20 @@ def audit(allow_missing_repository_code: bool = False, require_release_date: boo
             fail(f"CI workflow is missing required OS/Python matrix entry {token!r}")
     if "name: Build and validate distributions" not in workflow or "scripts/build_release.py" not in workflow:
         fail("CI workflow must include the distribution build/validation job")
+    release_job = jobs.get("release")
+    if not isinstance(release_job, dict):
+        fail("CI workflow must define the tag-triggered GitHub Release job")
+    if "startsWith(github.ref, 'refs/tags/v')" not in str(release_job.get("if", "")):
+        fail("release job must only publish version tags")
+    release_needs = release_job.get("needs", [])
+    if isinstance(release_needs, str):
+        release_needs = [release_needs]
+    if not {"test", "packaging"}.issubset(set(release_needs)):
+        fail("release job must wait for the full test matrix and packaging job")
+    if release_job.get("permissions", {}).get("contents") != "write":
+        fail("release job must declare narrow contents: write permission")
+    if "scripts/build_release.py --final-release" not in workflow or "gh release create" not in workflow:
+        fail("release job must rebuild final artifacts and publish them through gh release")
     for smoke_marker in (
         "wheel-demo-case", "wheel-comparison.json", "sdist-demo-case", "sdist-comparison.json",
         ".wheel-smoke/bin/python -m pip check", ".sdist-smoke/bin/python -m pip check",

@@ -5,6 +5,7 @@ type: software
 authors:
   - name: "WhatsApp Traceability Research Lab contributors"
 version: 0.5.2
+date-released: 2026-10-23
 license: MIT
 repository-code: https://github.com/AmithKumar1/whatsapp-traceability-research
 abstract: >-

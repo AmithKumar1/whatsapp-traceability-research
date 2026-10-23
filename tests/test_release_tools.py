@@ -59,16 +59,20 @@ def test_final_release_audit_requires_release_date() -> None:
         assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_final_builder_refuses_unreleased_candidate_metadata_before_building() -> None:
-    result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "build_release.py"), "--final-release"],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    assert result.returncode != 0
-    assert "date-released must be set" in result.stderr
+def test_final_builder_is_gated_by_complete_release_metadata() -> None:
+    builder = (ROOT / "scripts" / "build_release.py").read_text(encoding="utf-8")
+    assert "--final-release" in builder
+    assert "--require-release-date" in builder
+    result = run_audit("--require-release-date")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_tag_release_job_waits_for_all_tests_and_packaging() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "if: startsWith(github.ref, 'refs/tags/v')" in workflow
+    assert "needs: [test, packaging]" in workflow
+    assert "python scripts/build_release.py --final-release" in workflow
+    assert "gh release create" in workflow
 
 
 def test_packaging_smoke_tests_exercise_installed_distributions() -> None:

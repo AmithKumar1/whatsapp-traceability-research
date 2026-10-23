@@ -90,3 +90,29 @@ jobs:
           .sdist-smoke/bin/e2ee-traceability verify artifacts/sdist-demo-case
           .sdist-smoke/bin/e2ee-traceability compare --message-size 32 --hops 2 --tree-depth 2 --branching-factor 2 --repeats 1 --out artifacts/sdist-comparison.json --markdown artifacts/sdist-comparison.md
           python -c "import json,pathlib,jsonschema; p=json.loads(pathlib.Path('artifacts/sdist-comparison.json').read_text(encoding='utf-8')); s=json.loads(pathlib.Path('schemas/protocol-comparison.schema.json').read_text(encoding='utf-8')); jsonschema.validate(p,s); assert p['summary']['protocol_count']==5; assert p['summary']['interoperable_protocols']==[]"
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, packaging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Build final release artifacts
+        run: python scripts/build_release.py --final-release
+      - name: Publish verified release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "WhatsApp Traceability Research Lab ${GITHUB_REF_NAME}" \
+            --notes-file "docs/releases/${GITHUB_REF_NAME}.md" \
+            --verify-tag
