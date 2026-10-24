@@ -389,7 +389,6 @@ class CryptographicTracebackServer:
         reporting_pointer: PathPointer,
         registry: Optional[DeviceRegistry] = None,
         max_depth: int = 100,
-        expected_origin_account: Optional[str] = None,
     ) -> TracebackExecutionResult:
         """Execute the traceback algorithm from reporting user back to origin.
 
@@ -398,12 +397,13 @@ class CryptographicTracebackServer:
         predecessor tracing key k_prev = Dec(H(k), c_ptr). Traversal terminates
         when the prior message identifier mid is absent from server state.
 
-        Epistemic Distinction (Normal Origin vs. Missing Evidence):
-        An absent predecessor record in server state identifies a putative candidate origin,
-        but does NOT mathematically prove that the true origin was reached.
-        An intermediate forwarding record that was pruned, dropped, or withheld
-        also produces an absent lookup, causing traceback to halt early at an
-        intermediate forwarder.
+        Epistemic Principle (Protocol-Observed Candidate Origin):
+        An absent predecessor record in server state (T[mid] is None) identifies the
+        earliest recovered sender as an unverified candidate origin. However, the protocol
+        cannot mathematically prove that the true original sender was reached: a pruned,
+        expired, or withheld intermediate record produces the exact same lookup absence.
+        Therefore, protocol-level tracing terminates with outcome='TERMINATED_EARLY',
+        origin_reached=False, and reports the unverified candidate origin.
         """
         verified_hops: List[VerifiedHop] = []
         cursor_k = reporting_pointer.ptr
@@ -434,16 +434,10 @@ class CryptographicTracebackServer:
                 else:
                     # Traversal reached an address with no predecessor record in the table.
                     # Under Figure 3, the originator samples a random dummy key with no table entry.
-                    if expected_origin_account is not None:
-                        if origin_account == expected_origin_account:
-                            origin_reached = True
-                            termination_reason = "predecessor_record_absent_normal_origin_reached"
-                        else:
-                            origin_reached = False
-                            termination_reason = "predecessor_record_absent_missing_intermediate_evidence"
-                    else:
-                        origin_reached = True
-                        termination_reason = "predecessor_record_absent_in_server_state"
+                    # As established epistemically, an absent record identifies an unverified candidate
+                    # origin; it does NOT prove true origin was reached.
+                    origin_reached = False
+                    termination_reason = "predecessor_record_absent_candidate_origin_unverified"
                 break
 
             # 1. Identity binding check: record receiver must match current traversal node
@@ -560,8 +554,8 @@ class CryptographicTracebackServer:
         return TracebackExecutionResult(
             outcome=outcome,
             origin_reached=origin_reached,
-            recovered_origin_account=origin_account if origin_reached else None,
-            recovered_origin_device=origin_device if origin_reached else None,
+            recovered_origin_account=origin_account,
+            recovered_origin_device=origin_device,
             recovered_hops_count=len(verified_hops),
             termination_reason=termination_reason,
             verified_hops=tuple(verified_hops),

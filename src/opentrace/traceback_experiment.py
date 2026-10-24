@@ -324,6 +324,7 @@ def run_experiment(
     else:
         # Final recipient files an abuse complaint with the server
         reporting_participant = participants[hops_completed]
+        # Protocol-level traceback execution (pure server algorithm; no ground-truth oracle)
         trace_res = server.trace(
             message=message,
             reporting_account=reporting_participant.account_id,
@@ -331,20 +332,61 @@ def run_experiment(
             reporting_pointer=PathPointer(ptr=active_rec_state.tracing_key),
             registry=registry if use_pki else None,
             max_depth=hops + 5,
-            expected_origin_account=participants[0].account_id,
         )
         traceback_time_ns = time.perf_counter_ns() - t_start_trace
 
+    # Controlled Experiment / Ground-Truth Evaluation Layer:
+    # Compares protocol-observed candidate origin against known ground-truth participants[0]
+    ground_truth_origin = participants[0]
+    recovered_origin_account: Optional[str] = None
+    recovered_origin_device: Optional[str] = None
+
+    if aborted_at_hop is not None:
+        experiment_outcome = "FAILED_VERIFICATION"
+        experiment_origin_reached = False
+        experiment_termination_reason = trace_res.termination_reason
+    elif trace_res.outcome == "FAILED_VERIFICATION":
+        experiment_outcome = "FAILED_VERIFICATION"
+        experiment_origin_reached = False
+        experiment_termination_reason = trace_res.termination_reason
+    elif trace_res.termination_reason == "cyclic_forwarding_detected":
+        experiment_outcome = "TERMINATED_EARLY"
+        experiment_origin_reached = False
+        experiment_termination_reason = trace_res.termination_reason
+    elif "predecessor_record_absent" in trace_res.termination_reason:
+        if (
+            trace_res.recovered_origin_account == ground_truth_origin.account_id
+            and trace_res.recovered_hops_count == hops
+        ):
+            # In controlled evaluation, the unverified candidate matches known ground truth
+            experiment_outcome = "SUCCESS"
+            experiment_origin_reached = True
+            experiment_termination_reason = "predecessor_record_absent_candidate_origin_verified_by_ground_truth"
+            recovered_origin_account = trace_res.recovered_origin_account
+            recovered_origin_device = trace_res.recovered_origin_device
+        else:
+            # Predecessor record was absent at an intermediate node (missing intermediate evidence)
+            experiment_outcome = "TERMINATED_EARLY"
+            experiment_origin_reached = False
+            experiment_termination_reason = "predecessor_record_absent_missing_intermediate_evidence"
+    else:
+        experiment_outcome = trace_res.outcome
+        experiment_origin_reached = trace_res.origin_reached
+        experiment_termination_reason = trace_res.termination_reason
+        if experiment_origin_reached:
+            recovered_origin_account = trace_res.recovered_origin_account
+            recovered_origin_device = trace_res.recovered_origin_device
+
     # 5. Dynamic security property evaluations (distinguishing paper proof vs. observation)
-    if trace_res.origin_reached:
+    if experiment_origin_reached:
         prop_path_soundness = (
             f"OBSERVED_IN_EXPERIMENT: Honest forwarding path successfully traversed backwards to originator in "
-            f"{trace_res.recovered_hops_count} hops."
+            f"{trace_res.recovered_hops_count} hops (candidate origin verified against ground truth)."
         )
     else:
         prop_path_soundness = (
             f"EVALUATED_HALTED: Backward traversal stopped at hop {trace_res.recovered_hops_count} "
-            f"due to {trace_res.termination_reason}."
+            f"due to {experiment_termination_reason}."
         )
 
     if scenario == "forged_signature":
@@ -438,12 +480,12 @@ def run_experiment(
             for p in participants
         ],
         "traceback_result": {
-            "outcome": trace_res.outcome,
-            "origin_reached": trace_res.origin_reached,
-            "recovered_origin_account": trace_res.recovered_origin_account,
-            "recovered_origin_device": trace_res.recovered_origin_device,
+            "outcome": experiment_outcome,
+            "origin_reached": experiment_origin_reached,
+            "recovered_origin_account": recovered_origin_account,
+            "recovered_origin_device": recovered_origin_device,
             "recovered_hops_count": trace_res.recovered_hops_count,
-            "termination_reason": trace_res.termination_reason,
+            "termination_reason": experiment_termination_reason,
             "verified_hops": [
                 {
                     "hop_index": h.hop_index,
