@@ -161,7 +161,7 @@ def audit(allow_missing_repository_code: bool = False, require_release_date: boo
 
     example_pairs = (
         ("examples/benchmark-report-2026-10-23.json", "benchmark-report.schema.json"),
-        ("examples/protocol-comparison-sample-v0.5.2.json", "protocol-comparison.schema.json"),
+        ("examples/protocol-comparison-sample-v0.5.3.json", "protocol-comparison.schema.json"),
         ("examples/merkle-inclusion-proof.json", "merkle-inclusion-proof.schema.json"),
     )
     for example_rel, schema_name in example_pairs:
@@ -173,7 +173,7 @@ def audit(allow_missing_repository_code: bool = False, require_release_date: boo
             fail(f"example {example_rel} failed {schema_name}: {exc}")
 
     benchmark = json.loads((ROOT / "examples/benchmark-report-2026-10-23.json").read_text(encoding="utf-8"))
-    comparison = json.loads((ROOT / "examples/protocol-comparison-sample-v0.5.2.json").read_text(encoding="utf-8"))
+    comparison = json.loads((ROOT / "examples/protocol-comparison-sample-v0.5.3.json").read_text(encoding="utf-8"))
     if benchmark.get("opentrace_version") != version:
         fail("benchmark example version is stale")
     summary = comparison.get("summary", {})
