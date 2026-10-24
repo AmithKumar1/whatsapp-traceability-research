@@ -847,8 +847,7 @@ def test_forward_message_rejects_sender_account_mismatch() -> None:
     )
     rec_bob_v = rec_msg(bob.account_id, bob.device_id, env_ab)
 
-    table_size_before = len(server._table)
-    table_keys_before = set(server._table.keys())
+    table_snapshot_before = dict(server._table)
 
     # Eve (wrong account) attempts to forward Bob's received message
     with pytest.raises(ForwarderIdentityMismatchError, match="Forwarder identity .* does not match recipient identity"):
@@ -860,9 +859,8 @@ def test_forward_message_rejects_sender_account_mismatch() -> None:
             received_state=rec_bob_v,
         )
 
-    # Server table MUST remain completely unchanged
-    assert len(server._table) == table_size_before
-    assert set(server._table.keys()) == table_keys_before
+    # Server table MUST remain completely unchanged (keys, size, and every record value)
+    assert server._table == table_snapshot_before
 
 
 def test_forward_message_rejects_sender_device_mismatch() -> None:
@@ -883,8 +881,7 @@ def test_forward_message_rejects_sender_device_mismatch() -> None:
     )
     rec_bob_v = rec_msg(bob_primary.account_id, bob_primary.device_id, env_ab)
 
-    table_size_before = len(server._table)
-    table_keys_before = set(server._table.keys())
+    table_snapshot_before = dict(server._table)
 
     # Bob's secondary device attempts to forward state delivered to Bob's primary device
     with pytest.raises(ForwarderIdentityMismatchError, match="Forwarder identity .* does not match recipient identity"):
@@ -896,9 +893,8 @@ def test_forward_message_rejects_sender_device_mismatch() -> None:
             received_state=rec_bob_v,
         )
 
-    # Server table MUST remain completely unchanged
-    assert len(server._table) == table_size_before
-    assert set(server._table.keys()) == table_keys_before
+    # Server table MUST remain completely unchanged (keys, size, and every record value)
+    assert server._table == table_snapshot_before
 
 
 def test_normal_forwarding_continues_in_symmetric_and_pki_modes() -> None:
