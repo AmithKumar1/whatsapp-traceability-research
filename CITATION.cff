@@ -4,7 +4,7 @@ title: "WhatsApp Traceability Research Lab: Privacy-Preserving Traceability Rese
 type: software
 authors:
   - name: "WhatsApp Traceability Research Lab contributors"
-version: 0.5.3
+version: 0.6.0
 date-released: 2026-10-24
 license: MIT
 repository-code: https://github.com/AmithKumar1/whatsapp-traceability-research
