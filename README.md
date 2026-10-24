@@ -137,7 +137,7 @@ python benchmarks/benchmark_merkle.py --sizes 10 100 1000 --repeats 5 --out ./ar
 
 Offline cryptographic experiment reproducing the symmetric Path Traceback scheme (Section 4 / Figure 3) with recipient-side RecMsg verification, loop detection, and an optional PKI-backed non-repudiation extension:
 
-`ash
+```bash
 # Execute offline cryptographic experiment (4 hops, HMAC-SHA256 mid, AES-CTR pointers, RecMsg verification)
 e2ee-traceability traceback-reproduction --hops 4 --out ./artifacts/exp-tyagi2019.json --markdown ./artifacts/exp-tyagi2019.md
 
@@ -146,7 +146,7 @@ e2ee-traceability traceback-reproduction --hops 4 --scenario tampered_content --
 e2ee-traceability traceback-reproduction --hops 4 --scenario forged_signature --adversarial-hop 2
 e2ee-traceability traceback-reproduction --hops 4 --scenario missing_hop --adversarial-hop 2
 e2ee-traceability traceback-reproduction --hops 4 --scenario cyclic_forwarding --adversarial-hop 2
-`
+```
 
 For formal security definitions (CCS 2019 Theorem 1 Platform Trace Confidentiality, Theorem 2 User Trace Confidentiality, and Theorem 3 Trace Unforgeability), threat models, and claim-to-code mapping, see [docs/REPRODUCING_TYAGI2019.md](docs/REPRODUCING_TYAGI2019.md).
 

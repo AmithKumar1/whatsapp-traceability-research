@@ -23,9 +23,11 @@ In Section 4 and Figure 3 of the paper, the Path Traceback scheme is designed us
   - **Platform storage table:** The server stores $T[\text{mid}] = (\text{sender}, \text{receiver}, c_{\text{ptr}})$.
   - **Recipient message envelope:** Over the E2EE channel, the recipient receives strictly $(m, k, \text{mid})$. Predecessor pointer ciphertexts $c_{\text{ptr}}$ are **never delivered to recipients**.
   - Because $K_{\text{enc}} = H(k)$, any recipient in possession of both $k$ and $c_{\text{ptr}}$ could decrypt $k_{\text{prev}} = \text{Dec}(K_{\text{enc}}, c_{\text{ptr}})$ and recursively expose earlier forwarding history. Isolating $c_{\text{ptr}}$ exclusively to the server guarantees that recipients learn only the immediate message content and tracing key, and cannot inspect previous forwarding history.
-- **Traceback Termination & Sentinel Semantics:**
-  - In Figure 3, the originator samples $k_0$ and a sentinel origin predecessor key $k_{\text{prev}} = \text{ORIGIN\_KEY} = 0^{256}$ (or samples a random dummy predecessor key with no corresponding entry in the server table $T$).
-  - When the platform executes backward traversal, reaching the sentinel key $k = \text{ORIGIN\_KEY}$ or encountering an address $F(k_{\text{prev}}, m)$ absent from $T$ signals that the origin has been reached, terminating traceback cleanly.
+- **Traceback Termination Semantics (Figure 3):**
+  - In Figure 3, the originator samples fresh random tracing key $k_0 \leftarrow \{0, 1\}^{256}$ and a fresh random dummy predecessor key $k_{\text{prev}} \leftarrow \{0, 1\}^{256}$ (not a fixed zero sentinel). The predecessor key is encrypted as $c_{\text{ptr}} = \text{AES-CTR}(H(k_0), k_{\text{prev}})$ and stored in $T[\text{mid}_0]$.
+  - Crucially, no record is created for $F(k_{\text{prev}}, m)$ in $T$.
+  - When the platform executes backward traversal, reaching an address $F(k_{\text{prev}}, m)$ absent from $T$ signals the end of recorded forwarding, terminating traceback.
+  - **Epistemic Principle (Normal Origin vs. Missing Evidence):** Because an originator-sampled random predecessor key and a missing/pruned intermediate forwarding record both result in $T[\text{mid}] = \bot$, an absent lookup in server state identifies a putative/candidate origin, but **never proves that the true origin was reached**. If intermediate records were pruned, expired, or dropped, traceback terminates at the earliest available intermediate forwarder.
 - **Third-Party Deniability:** Because all cryptographic material is symmetric, both sender and receiver possess $k$ and $\text{mid}$. No non-repudiable asymmetric digital signatures are created that could prove authorship to an external third party or court. Accountability is internal to the platform via authenticated transmission sessions.
 
 ### 1.2 Experimental Non-Repudiation Extension (DeviceRegistry PKI)
@@ -76,7 +78,7 @@ To ensure reproducibility across independent implementations, a fixed determinis
 - **Alice Private Key Seed:** `1111111111111111111111111111111111111111111111111111111111111111`
 - **Bob Private Key Seed:** `2222222222222222222222222222222222222222222222222222222222222222`
 - **Origin Tracing Key ($k_0$):** `0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20`
-- **Origin Predecessor Key:** `0000000000000000000000000000000000000000000000000000000000000000` (32 zero bytes)
+- **Origin Predecessor Key ($k_{\\text{prev}, 0}$, Fixed KAT Seed):** `0000000000000000000000000000000000000000000000000000000000000000` (32-byte fixed test seed for KAT verification; standard operation samples $k_{\\text{prev}}$ uniformly at random)
 - **Expected Message Identifier ($\text{mid}_0$, Hex KAT):**  
   `9e35b1b5fb0a7dc8f56cb8eb622affc53f2f47e7cad89db802c1c16f727b3482`
 - **Expected Encryption Key ($K_{\text{enc}, 0}$, Hex KAT):**  

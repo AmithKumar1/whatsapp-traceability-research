@@ -61,7 +61,6 @@ DOMAIN_PRF_MID = b"Tyagi2019-PRF-mid-v1\x00"
 DOMAIN_KDF_ENC = b"Tyagi2019-KDF-enc-v1\x00"
 DOMAIN_EXTENSION_SIG = b"Tyagi2019-Extension-Sig-v1\x00"
 
-ORIGIN_KEY = b"\x00" * 32
 TRACING_KEY_SIZE = 32
 MID_SIZE = 32
 AES_KEY_SIZE = 16
@@ -180,7 +179,8 @@ class PathPointer:
 
     @classmethod
     def origin(cls) -> "PathPointer":
-        return cls(ptr=ORIGIN_KEY)
+        """Generate a random dummy predecessor key for origin messages (CCS 2019 Figure 3)."""
+        return cls(ptr=os.urandom(TRACING_KEY_SIZE))
 
     @classmethod
     def random(cls) -> "PathPointer":
@@ -389,11 +389,21 @@ class CryptographicTracebackServer:
         reporting_pointer: PathPointer,
         registry: Optional[DeviceRegistry] = None,
         max_depth: int = 100,
+        expected_origin_account: Optional[str] = None,
     ) -> TracebackExecutionResult:
         """Execute the traceback algorithm from reporting user back to origin.
 
-        Adheres to Figure 3: uses k and H(k) to decrypt predecessor tracing keys.
-        Checks identity bindings, detects loops, and checks registry if extension active.
+        Adheres strictly to Figure 3 of Tyagi et al. (CCS 2019):
+        Iteratively uses tracing key k to lookup tag at mid = F(k, m) and decrypt
+        predecessor tracing key k_prev = Dec(H(k), c_ptr). Traversal terminates
+        when the prior message identifier mid is absent from server state.
+
+        Epistemic Distinction (Normal Origin vs. Missing Evidence):
+        An absent predecessor record in server state identifies a putative candidate origin,
+        but does NOT mathematically prove that the true origin was reached.
+        An intermediate forwarding record that was pruned, dropped, or withheld
+        also produces an absent lookup, causing traceback to halt early at an
+        intermediate forwarder.
         """
         verified_hops: List[VerifiedHop] = []
         cursor_k = reporting_pointer.ptr
@@ -408,11 +418,6 @@ class CryptographicTracebackServer:
         termination_reason = "in_progress"
 
         for hop_idx in range(max_depth):
-            if cursor_k == ORIGIN_KEY:
-                origin_reached = True
-                termination_reason = "origin_reached_successfully"
-                break
-
             if cursor_k in visited_keys:
                 termination_reason = "cyclic_forwarding_detected"
                 break
@@ -422,7 +427,23 @@ class CryptographicTracebackServer:
             mid = _crprf(cursor_k, message)
             record = self._table.get(mid)
             if record is None:
-                termination_reason = "missing_forwarding_record_in_server_state"
+                # Figure 3 termination: prior message identifier is absent from server table
+                if hop_idx == 0:
+                    termination_reason = "complaint_record_absent_in_server_state"
+                    origin_reached = False
+                else:
+                    # Traversal reached an address with no predecessor record in the table.
+                    # Under Figure 3, the originator samples a random dummy key with no table entry.
+                    if expected_origin_account is not None:
+                        if origin_account == expected_origin_account:
+                            origin_reached = True
+                            termination_reason = "predecessor_record_absent_normal_origin_reached"
+                        else:
+                            origin_reached = False
+                            termination_reason = "predecessor_record_absent_missing_intermediate_evidence"
+                    else:
+                        origin_reached = True
+                        termination_reason = "predecessor_record_absent_in_server_state"
                 break
 
             # 1. Identity binding check: record receiver must match current traversal node
@@ -554,16 +575,22 @@ def originate_message(
     receiver_device: str,
     message: bytes,
     fixed_tracing_key: Optional[bytes] = None,
+    fixed_predecessor_key: Optional[bytes] = None,
     attach_extension_signature: bool = False,
 ) -> Tuple[MessageEnvelope, ReceivedMessageState, CryptographicTraceTag]:
     """Originate a fresh message.
 
-    Generates initial tracing key k_0, encrypts ORIGIN_KEY pointer, and stores in server table.
+    Adheres strictly to Tyagi et al. (CCS 2019) Figure 3:
+    Generates initial tracing key k_0 and a random predecessor tracing key k_prev_0.
+    Encrypts the predecessor key c_0 = AES-CTR(H(k_0), k_prev_0) and stores (sender, receiver, c_0)
+    in the server table indexed by mid_0 = F(k_0, m).
+    No server entry is created for F(k_prev_0, m), so traceback halts cleanly when reaching k_prev_0.
     """
     k_0 = fixed_tracing_key if fixed_tracing_key is not None else os.urandom(TRACING_KEY_SIZE)
+    k_prev_0 = fixed_predecessor_key if fixed_predecessor_key is not None else os.urandom(TRACING_KEY_SIZE)
     mid_0 = _crprf(k_0, message)
     enc_key_0 = _kdf_enc(k_0)
-    ct_0 = _aes_ctr(enc_key_0, ORIGIN_KEY)
+    ct_0 = _aes_ctr(enc_key_0, k_prev_0)
 
     pubkey_bytes: Optional[bytes] = None
     sig: Optional[bytes] = None

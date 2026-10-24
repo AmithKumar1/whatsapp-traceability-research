@@ -331,6 +331,7 @@ def run_experiment(
             reporting_pointer=PathPointer(ptr=active_rec_state.tracing_key),
             registry=registry if use_pki else None,
             max_depth=hops + 5,
+            expected_origin_account=participants[0].account_id,
         )
         traceback_time_ns = time.perf_counter_ns() - t_start_trace
 
@@ -377,8 +378,9 @@ def run_experiment(
 
     if scenario == "missing_hop":
         prop_absence_phantom = (
-            f"OBSERVED_IN_EXPERIMENT: Missing server record caused traceback to halt at the missing link "
-            f"({trace_res.termination_reason}) without manufacturing phantom hops."
+            f"OBSERVED_IN_EXPERIMENT: Missing intermediate server record caused traceback to halt at the missing link "
+            f"({trace_res.termination_reason}) at an intermediate forwarder without manufacturing phantom hops. "
+            f"Crucially, an absent predecessor record does not prove origin was reached; missing evidence halts traversal early."
         )
     else:
         prop_absence_phantom = (
@@ -420,8 +422,10 @@ def run_experiment(
                 "It does not establish the legal identity or human operator of the device."
             ),
             "no_unrecorded_history_inference": (
-                "If forwarding state is pruned or omitted, the algorithm reports an explicit missing record "
-                "and terminates. It does not synthesize phantom hops or guess missing historical events."
+                "If forwarding state is pruned or omitted, the algorithm reports an absent record "
+                "and terminates. It does not synthesize phantom hops or guess missing historical events. "
+                "Crucially, an absent predecessor record identifies a candidate origin, but does not prove "
+                "the true origin was reached if earlier forwarding records were pruned or dropped."
             ),
         },
         "participants": [
