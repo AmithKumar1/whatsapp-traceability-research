@@ -49,7 +49,7 @@ import hashlib
 import hmac
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Final, List, Optional, Tuple
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
@@ -64,6 +64,15 @@ DOMAIN_EXTENSION_SIG = b"Tyagi2019-Extension-Sig-v1\x00"
 TRACING_KEY_SIZE = 32
 MID_SIZE = 32
 AES_KEY_SIZE = 16
+
+VERIFICATION_FAILURE_REASONS: Final[frozenset[str]] = frozenset({
+    "missing_sender_public_key_in_record",
+    "missing_trusted_registry_fail_closed",
+    "unregistered_self_asserted_key_rejected",
+    "forged_sender_signature_detected",
+    "missing_required_signature_in_pki_mode",
+    "identity_binding_mismatch_at_hop",
+})
 
 
 def _crprf(key: bytes, message: bytes) -> bytes:
@@ -491,6 +500,19 @@ class CryptographicTracebackServer:
 
             if record.signature is not None:
                 if record.sender_pubkey_raw is None:
+                    verified_hops.append(
+                        VerifiedHop(
+                            hop_index=hop_idx + 1,
+                            sender_account=record.sender_account,
+                            sender_device=record.sender_device,
+                            receiver_account=record.receiver_account,
+                            receiver_device=record.receiver_device,
+                            address_hex=mid.hex(),
+                            signature_valid=False,
+                            signature_status="INVALID",
+                            status="missing_sender_public_key_in_record",
+                        )
+                    )
                     termination_reason = "missing_sender_public_key_in_record"
                     break
                 # Fail closed: A trusted DeviceRegistry is required to verify public-key identity claims
@@ -590,11 +612,7 @@ class CryptographicTracebackServer:
             termination_reason = "max_trace_depth_exceeded"
 
         outcome = "SUCCESS" if origin_reached else (
-            "FAILED_VERIFICATION" if (
-                "signature" in termination_reason
-                or "unregistered" in termination_reason
-                or "registry" in termination_reason
-            )
+            "FAILED_VERIFICATION" if termination_reason in VERIFICATION_FAILURE_REASONS
             else "TERMINATED_EARLY"
         )
 

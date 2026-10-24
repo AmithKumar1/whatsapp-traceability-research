@@ -1,6 +1,8 @@
 """Automated test suite for the cryptographic reproduction of Tyagi et al. (CCS 2019)."""
 from __future__ import annotations
 
+from typing import Any
+
 import json
 from pathlib import Path
 import jsonschema
@@ -687,3 +689,139 @@ def test_ground_truth_verifies_device_and_hop_sequence() -> None:
     assert len(res["verified_hops"]) == 3
     for hop in res["verified_hops"]:
         assert hop["status"] == "verified_hop_authenticated"
+
+
+def test_missing_sender_public_key_produces_failed_verification() -> None:
+    """Regression test: Missing public key in a signed record produces FAILED_VERIFICATION."""
+    server = CryptographicTracebackServer()
+    registry = DeviceRegistry()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    registry.register(alice.account_id, alice.device_id, alice.public_key_bytes)
+    registry.register(bob.account_id, bob.device_id, bob.public_key_bytes)
+
+    msg = b"Message for missing public key test"
+    env_ab, rec_bob, tag_ab = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
+        message=msg,
+        attach_extension_signature=True,
+    )
+    rec_bob_v = rec_msg(bob.account_id, bob.device_id, env_ab, registry=registry, require_signature=True)
+
+    # Manually remove the public key from the server record while keeping the signature intact
+    orig_rec = server._table[tag_ab.addr]
+    assert orig_rec.signature is not None
+    server._table[tag_ab.addr] = type(orig_rec)(
+        ct=orig_rec.ct,
+        sender_account=orig_rec.sender_account,
+        sender_device=orig_rec.sender_device,
+        sender_pubkey_raw=None,  # stripped public key
+        receiver_account=orig_rec.receiver_account,
+        receiver_device=orig_rec.receiver_device,
+        signature=orig_rec.signature,
+    )
+
+    trace_res = server.trace(
+        message=msg,
+        reporting_account=bob.account_id,
+        reporting_device=bob.device_id,
+        reporting_pointer=PathPointer(rec_bob_v.tracing_key),
+        registry=registry,
+        require_signature=True,
+    )
+
+    assert trace_res.outcome == "FAILED_VERIFICATION"
+    assert trace_res.origin_reached is False
+    assert trace_res.termination_reason == "missing_sender_public_key_in_record"
+    assert trace_res.candidate_origin_account is None
+    assert trace_res.candidate_origin_device is None
+    assert len(trace_res.verified_hops) == 1
+    hop = trace_res.verified_hops[0]
+    assert hop.signature_valid is False
+    assert hop.signature_status == "INVALID"
+    assert hop.status == "missing_sender_public_key_in_record"
+
+
+def test_ground_truth_rejects_candidate_device_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Negative test: Ground truth rejects certification if candidate device differs from ground truth."""
+    import dataclasses
+
+    orig_trace = CryptographicTracebackServer.trace
+
+    def mock_trace(self: CryptographicTracebackServer, *args: Any, **kwargs: Any) -> Any:
+        res = orig_trace(self, *args, **kwargs)
+        # Account matches acct:alice, but device is altered to a secondary/wrong device
+        return dataclasses.replace(res, candidate_origin_device="dev:alice-secondary")
+
+    monkeypatch.setattr(CryptographicTracebackServer, "trace", mock_trace)
+
+    report = run_experiment(hops=3, scenario="valid_linear_path")
+    res = report["traceback_result"]
+    assert res["outcome"] == "TERMINATED_EARLY"
+    assert res["origin_reached"] is False
+    assert res["candidate_origin_account"] == "acct:alice"
+    assert res["candidate_origin_device"] == "dev:alice-secondary"
+    assert res["recovered_origin_account"] is None
+    assert res["recovered_origin_device"] is None
+    assert res["termination_reason"] == "predecessor_record_absent_missing_intermediate_evidence"
+
+
+def test_ground_truth_rejects_hop_sequence_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Negative test: Ground truth rejects certification if reverse hop sequence does not match chain."""
+    import dataclasses
+
+    orig_trace = CryptographicTracebackServer.trace
+
+    def mock_trace(self: CryptographicTracebackServer, *args: Any, **kwargs: Any) -> Any:
+        res = orig_trace(self, *args, **kwargs)
+        tampered_hops = list(res.verified_hops)
+        # Tamper with the sender identity of an intermediate hop
+        tampered_hops[0] = dataclasses.replace(tampered_hops[0], sender_account="acct:eve")
+        return dataclasses.replace(res, verified_hops=tuple(tampered_hops))
+
+    monkeypatch.setattr(CryptographicTracebackServer, "trace", mock_trace)
+
+    report = run_experiment(hops=3, scenario="valid_linear_path")
+    res = report["traceback_result"]
+    assert res["outcome"] == "TERMINATED_EARLY"
+    assert res["origin_reached"] is False
+    assert res["recovered_origin_account"] is None
+    assert res["recovered_origin_device"] is None
+    assert res["termination_reason"] == "predecessor_record_absent_missing_intermediate_evidence"
+
+
+def test_cli_traceback_reproduction_includes_hops_signature_statuses(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verifies that CLI traceback-reproduction outputs hops_signature_statuses in summary JSON."""
+    from opentrace.cli import main
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["e2ee-traceability", "traceback-reproduction", "--hops", "2"],
+    )
+    main()
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert "hops_signature_statuses" in payload
+    assert payload["hops_signature_statuses"] == ["N/A", "N/A"]
+
+
+def test_cli_traceback_reproduction_pki_signature_statuses(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verifies CLI traceback-reproduction exposes VALID signature statuses under PKI mode."""
+    from opentrace.cli import main
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["e2ee-traceability", "traceback-reproduction", "--hops", "2", "--pki-extension"],
+    )
+    main()
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert "hops_signature_statuses" in payload
+    assert payload["hops_signature_statuses"] == ["VALID", "VALID"]
