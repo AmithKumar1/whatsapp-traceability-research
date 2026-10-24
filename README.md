@@ -1,71 +1,147 @@
-# WhatsApp Traceability Research Lab — Independent Research on E2EE Traceability
+# WhatsApp Traceability Research Lab
 
-**Status:** research prototype / v0.5.2 · **License:** MIT · **As of:** 2026-10-23
+[![Release](https://img.shields.io/badge/release-v0.5.2-blue.svg)](https://github.com/AmithKumar1/whatsapp-traceability-research/releases) [![CI](https://github.com/AmithKumar1/whatsapp-traceability-research/actions/workflows/ci.yml/badge.svg)](https://github.com/AmithKumar1/whatsapp-traceability-research/actions/workflows/ci.yml) [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB.svg?logo=python&logoColor=white)](pyproject.toml) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Status](https://img.shields.io/badge/status-research--prototype-informational)](#)
 
-**Repository:** https://github.com/AmithKumar1/whatsapp-traceability-research · **Issues:** https://github.com/AmithKumar1/whatsapp-traceability-research/issues · **Discussions:** https://github.com/AmithKumar1/whatsapp-traceability-research/discussions
+> **An independent evaluation and benchmark harness for privacy-preserving source tracing in end-to-end encrypted (E2EE) messaging.**
 
-**Python distribution:** `e2ee-traceability-lab`. The current alpha retains the `opentrace` Python module, `python -m opentrace` invocation, legacy `opentrace` console alias, and existing wire/schema identifiers for compatibility; the preferred installed CLI is `e2ee-traceability`.
+[Overview](#overview) • [Why This Exists](#why-this-project-exists) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Protocol Comparison](#protocol-comparison) • [Core Capabilities](#core-capabilities) • [Principles](#project-principles) • [Docs](#repository-map)
 
-Legacy `opentrace` names in serialized format identifiers and domain-separation strings are intentionally preserved for v0.x compatibility; they are protocol identifiers, not a second project name. The distribution name remains `e2ee-traceability-lab` for package compatibility; the project is now titled WhatsApp Traceability Research Lab.
+---
 
-WhatsApp Traceability Research Lab is an independent open-source research and evaluation framework for privacy-preserving source tracing in end-to-end encrypted (E2EE) messaging. It is designed to compare protocol families, test abuse resistance, preserve the provenance of evidence, and make uncertainty visible.
+> [!IMPORTANT]
+> **Independent Research & Scope Limits**
+> This is an independent academic and open-source evaluation framework. It is **not affiliated with, endorsed by, or operated by WhatsApp or Meta**.
+> - **Synthetic only:** Executable demonstrations evaluate conceptual models on synthetic event graphs; they do not contact WhatsApp servers or access private chats.
+> - **No backdoor or decryption:** Does not weaken end-to-end encryption, bypass cryptographic backups, or reconstruct unrecorded forwarding events.
+> - **Governance over technology:** Technical checks enforce configured technical policies; real evidence requires authentic legal authority.
 
-> **Independence and limits:** This is an independent research project, not affiliated with, endorsed by, or operated by WhatsApp/Meta. The current executable is a synthetic demonstration. It is not integrated with WhatsApp, does not reveal private chats, does not bypass encryption or backups, and cannot reconstruct historical forwarding events that were never recorded. Use real evidence only when lawfully acquired and authorized for examination.
+<details>
+<summary>📦 <b>Package & CLI Compatibility Note</b> (<code>e2ee-traceability-lab</code> / <code>opentrace</code>)</summary>
+
+- **Installed CLI command:** `e2ee-traceability` (preferred) or legacy console alias `opentrace`.
+- **PyPI / Distribution name:** `e2ee-traceability-lab`.
+- **Python import module:** `opentrace` (`python -m opentrace ...`).
+- Wire format identifiers, schemas, and domain-separation tags retain the `opentrace` prefix for v0.x protocol compatibility.
+</details>
+
+## Overview
+
+WhatsApp Traceability Research Lab provides an empirical, reproducible testbed to analyze, benchmark, and compare distinct cryptographic and policy proposals for source tracing in E2EE networks. Rather than treating "traceability" as a monolithic concept, the lab isolates distinct research designs behind standardized adapters to evaluate:
+
+1. **Information disclosure**: Does a scheme reveal only the source account, the full forwarding path, or the entire viral tree?
+2. **Abuse resistance & multi-party control**: Can an adversary or rogue platform trace an innocent forwarder without multi-party quorum?
+3. **Evidence provenance**: Can an offline bundle be verified with strict canonical manifests, domain-separated hash chains, and RFC 9162 Merkle proofs?
 
 ## Why this project exists
 
-There are several distinct research designs—not one generic “traceability algorithm”:
+There is no single "traceability algorithm"—different academic papers propose fundamentally different trust models, disclosure boundaries, and cryptographic assumptions:
 
-| Family | Primary capability | Research reference | Planned adapter status |
-|---|---|---|---|
-| Path / tree traceback | Reveal a path, or a forwarding tree, after a message is reported | Tyagi, Miers & Ristenpart, CCS 2019 | Reproduction study first |
-| Complaint-enabled source tracking | Disclose a reported message's source while limiting disclosure of intermediate recipients | Peale, Eskandarian & Boneh, CCS 2021 | Specification/reproduction study |
-| Hop Tracking Signatures (HTS) | Trace originators after long forwarding paths, with threshold-based anonymity | Branco et al., ePrint 2025/1052 | Synthetic threshold model; cryptographic reproduction pending |
-| Minimal-trust source tracing | Distribute tracing power across distinct entities; limit abuse under collusion assumptions | Wang et al., NDSS 2026 | Synthetic policy-gate model; cryptographic reproduction pending |
+| Protocol Family | Capability & Scope | Research Reference | Adapter Status |
+| :--- | :--- | :--- | :--- |
+| 🌲 **Path / Tree Traceback** | Discloses complete message paths or branching trees upon recipient complaint | Tyagi, Miers & Ristenpart (*CCS 2019*) | Synthetic tree & path adapter |
+| 🎯 **Complaint-Enabled Tracking** | Identifies original sender while limiting intermediate recipient disclosure | Peale, Eskandarian & Boneh (*CCS 2021*) | Synthetic source-only adapter |
+| ⏳ **Hop Tracking Signatures (HTS)** | Traces originators after long forwarding paths with configurable anonymity thresholds | Branco et al. (*ePrint 2025/1052*) | Synthetic threshold model |
+| 🏛️ **Minimal-Trust Tracing** | Distributes tracing power across platform, regulator, moderators, and recipients | Wang et al. (*NDSS 2026*) | Synthetic policy-gate model |
 
-WhatsApp Traceability Research Lab's novelty is intended to be the **reproducible comparison harness, policy model, evidence format, adversarial testing, and interoperability layer**, not a claim that all underlying cryptographic ideas are new.
+The framework focuses on **reproducible benchmarking, policy modeling, evidence packaging, adversarial testing, and comparative trade-off analysis**.
 
-## What works now
+## Architecture
 
-- `e2ee-traceability demo`: creates a synthetic branching forwarding graph.
-- Evidence manifest v0.2: hashes file content and size, links records with a domain-separated SHA-256 record chain, signs a restricted canonical-JSON manifest with Ed25519, and checks bundle inventory completeness.
-- `e2ee-traceability verify`: checks signature, signer-key fingerprint, record chain, payload sizes/digests, reserved paths, and unlisted files.
-- `e2ee-traceability authorization-demo` / `e2ee-traceability authorize-check`: demonstration of request- and policy-bound Ed25519 approvals, strict policy/trust registry validation, safe relative public-key paths, configured roles, distinct approvers/trust domains, expiry, and disclosure-mode policy.
-- `e2ee-traceability merkle-demo` / `e2ee-traceability merkle-verify`: create and independently verify offline Merkle inclusion proofs using RFC 9162-style leaf/node domain separation, with input-size safety limits and range-based tree hashing. `benchmarks/benchmark_merkle.py` reports reproducible local helper timings only.
-- `e2ee-traceability traceback2019-benchmark`: run the focused synthetic path-traceback microbenchmark. It is explicitly non-interoperable with the upstream Rust reference until differential testing is completed.
-- `e2ee-traceability benchmark`: run the unified synthetic path/tree harness with shared measurement schema, correctness checks, raw timing samples, disclosure counters, and workload bounds.
-- `e2ee-traceability compare`: compare path/tree traceback, 2021 source-only tracking, HTS threshold behavior, and the 2026 minimal-trust policy model under a common report configuration.
-- `e2ee-traceability hts2025-demo` and `e2ee-traceability minimal-trust2026-demo`: inspect the new conceptual models without contacting any messaging service.
-- Strict JSON input parsing rejects duplicate object keys and non-standard numeric constants.
-- Trace graph validation catches duplicate event IDs, missing parents, inconsistent content references, and cycles.
-- Disclosure modes are explicit: `ORIGIN_ONLY` is the default; the demo stores separate synthetic `PATH` and `TREE` fixtures to test scope without silently disclosing them in the default report.
-- Tests for successful verification and tampering detection.
+The framework unifies graph generation, multi-party authorization, adapter execution, and integrity verification into a single verifiable pipeline:
 
-The demo's key is self-signed and ephemeral. Without an independently trusted public key/fingerprint, it demonstrates consistency/integrity checking—not the real-world identity of the signer, a trustworthy time, or evidentiary admissibility. The authorization demo only verifies a configured technical policy; it does not validate a real court order or legal basis. The restricted canonical JSON profile rejects floating-point values and is not a full RFC 8785 implementation. The Merkle proof demo does not include a signed tree head or a network transparency service.
+```mermaid
+flowchart TD
+    subgraph S1["1. Event Graph & Input"]
+        E["Synthetic Message Graph<br/>(Origin, Forward, Report)"] --> G["Strict Graph Validator<br/>(Cycle & Content Checks)"]
+    end
+
+    subgraph S2["2. Multi-Party Authorization Gate"]
+        G --> P{"Policy & Quorum Gate<br/>(M-of-N Ed25519 Approvals)"}
+        R["Regulator / Legal Reviewer"] -->|Signed Approval| P
+        M["Platform / Privacy Officer"] -->|Signed Approval| P
+    end
+
+    subgraph S3["3. Research Evaluation Layer"]
+        P -->|Authorized Scope| T1["2019 Path & Tree Traceback"]
+        P -->|Authorized Scope| T2["2021 Source-Only Tracking"]
+        P -->|Authorized Scope| T3["2025 HTS Threshold Model"]
+        P -->|Authorized Scope| T4["2026 Minimal-Trust Gate Simulation"]
+    end
+
+    subgraph S4["4. Verifiable Evidence & Transparency"]
+        T1 & T2 & T3 & T4 --> MFT["Restricted Canonical JSON Manifest"]
+        MFT --> CHN["Domain-Separated SHA-256 Record Chain"]
+        MFT --> SIG["Detached Ed25519 Manifest Signature"]
+        MFT --> MRK["RFC 9162 Merkle Inclusion Proof"]
+    end
+```
 
 ## Quick start
 
 Requires Python 3.11+.
 
+### 1. Installation
+
 ```bash
 python -m venv .venv
+
 # Windows PowerShell:
 .venv\Scripts\Activate.ps1
 # macOS/Linux:
-# source .venv/bin/activate
-python -m pip install -e ".[dev]"
+source .venv/bin/activate
 
+python -m pip install -e ".[dev]"
+```
+
+*(Or run directly with `PYTHONPATH=src` without installing: see [Direct Module Execution](#direct-module-execution).)*
+
+### 2. Generate and verify a synthetic evidence case
+
+```bash
+# 1. Create a synthetic branching forwarding bundle
 e2ee-traceability demo --out ./artifacts/demo-case
+
+# 2. Independently verify the manifest signature, SHA-256 record chain, and file inventory
 e2ee-traceability verify ./artifacts/demo-case
+```
+
+To verify against an explicitly trusted external public key:
+```bash
+e2ee-traceability verify ./artifacts/demo-case --public-key ./trusted-signer.pem
+```
+
+### 3. Multi-party authorization check
+
+```bash
+# Generate a sample request with multi-domain Ed25519 reviewer approvals
 e2ee-traceability authorization-demo --out ./artifacts/authorization-demo
-e2ee-traceability authorize-check --request ./artifacts/authorization-demo/request.json --approvals ./artifacts/authorization-demo/approvals.json --trust ./artifacts/authorization-demo/trust-registry.json --policy ./artifacts/authorization-demo/policy.json
+
+# Verify request scope, distinct reviewer domains, role policy, and timestamp freshness
+e2ee-traceability authorize-check   --request ./artifacts/authorization-demo/request.json   --approvals ./artifacts/authorization-demo/approvals.json   --trust ./artifacts/authorization-demo/trust-registry.json   --policy ./artifacts/authorization-demo/policy.json
+```
+
+### 4. Merkle inclusion proofs
+
+```bash
+# Generate an offline inclusion proof
 e2ee-traceability merkle-demo --out ./artifacts/merkle-proof.json
+
+# Independently verify leaf inclusion against the root
 e2ee-traceability merkle-verify --proof ./artifacts/merkle-proof.json --entry-text synthetic-event-002
+
+# Run the Merkle microbenchmark
 python benchmarks/benchmark_merkle.py --sizes 10 100 1000 --repeats 5 --out ./artifacts/merkle-benchmark.json
+```
+
+### 5. Run tests
+
+```bash
 pytest
 ```
 
-Or run with `PYTHONPATH=src` without installing the entry point:
+### Direct module execution
+
+If running from source without an active editable install:
 
 ```bash
 # macOS/Linux:
@@ -78,127 +154,12 @@ python -m opentrace demo --out ./artifacts/demo-case
 python -m opentrace verify ./artifacts/demo-case
 ```
 
-To verify against a **separately trusted** public key, pass it explicitly:
+## Protocol comparison
+
+Compare five synthetic research models in a single controlled benchmark:
 
 ```bash
-e2ee-traceability verify ./artifacts/demo-case --public-key ./trusted-signer.pem
-```
-
-The trusted key must be obtained through a separate trusted channel. A public key bundled next to a manifest is not its own trust anchor.
-
-## Project principles
-
-1. **First originator is not necessarily a named human.** A cryptographic account credential, device, phone-number binding, and real-world person are different claims.
-2. **First-originator mode is the default.** Full path/tree disclosure is a more invasive, separately authorized mode.
-3. **No evidence, no claim.** Every report finding should link to evidence, a verification method, and limitations.
-4. **Observed ≠ verified ≠ inferred.** Reports use explicit epistemic labels.
-5. **No phone-number lookup of private histories.** Evidence adapters accept user-provided or lawfully acquired artifacts; they do not access an account just from a number.
-6. **Cryptography is not a substitute for governance.** Authorization, scope minimization, multi-party control, audit, revocation, and appeal are first-class design surfaces.
-7. **No home-grown cryptographic primitives.** Reuse mature libraries and standard encodings; isolate research algorithms behind adapters.
-8. **Do not overclaim time.** Device timestamps, platform timestamps, trusted timestamp tokens, and inferred ordering are distinct.
-9. **Blockchain is optional, not magic.** Prefer portable signed manifests and append-only transparency proofs; no public blockchain is required for MVP.
-10. **Do not deploy protocol adapters as production tracing until independently reviewed.**
-
-## Repository map
-
-```text
-src/opentrace/
-  README.md
-  pyproject.toml
-  docs/
-    MASTER_SPEC.md
-    RESEARCH_REVIEW.md
-    THREAT_MODEL.md
-    ARCHITECTURE.md
-    DATA_MODEL.md
-    CRYPTO_DECISIONS.md
-    LEGAL_AND_ETHICAL_SCOPE.md
-    TEST_PLAN.md
-    ROADMAP.md
-    DECISIONS.md
-    PROTOCOL_ADAPTERS.md
-    REPRODUCIBILITY.md
-    GITHUB_RELEASE_CHECKLIST.md
-  schemas/
-    trace-event.schema.json
-    case-manifest.schema.json
-    authorization-request.schema.json
-    authorization-approval.schema.json
-    authorization-approvals.schema.json
-    authorization-policy.schema.json
-    trust-registry.schema.json
-    merkle-inclusion-proof.schema.json
-    benchmark-report.schema.json
-  src/opentrace/
-    canonical.py
-    strictjson.py
-    tracegraph.py
-    integrity.py
-    authorization.py
-    authorization_demo.py
-    transparency.py
-    protocols/traceback2019.py
-    protocols/traceback2019_tree.py
-    protocols/source_tracking2021.py
-    protocols/hts2025.py
-    protocols/minimal_trust2026.py
-    comparison.py
-    benchmark.py
-    demo.py
-    cli.py
-  tests/
-  examples/
-```
-
-Release 0.5.2 example comparison outputs are in `examples/protocol-comparison-sample-v0.5.2.json` and `examples/protocol-comparison-sample-v0.5.2.md`. These timings are machine-dependent demonstrations of the Python harness, not cryptographic benchmarks.
-
-## Research references
-
-The source-by-source review, including what each paper contributes and what WhatsApp Traceability Research Lab should not assume from it, lives in [`docs/RESEARCH_REVIEW.md`](docs/RESEARCH_REVIEW.md). Protocol-specific implementation should begin only after reproducing and documenting the papers' threat models and security definitions.
-
-## Roadmap summary
-
-- **P0:** synthetic event graph + signed evidence manifest + tests — v0.1.
-- **P1:** hardened local manifest, configurable multi-approver policy, offline Merkle inclusion proofs, strict JSON, expanded adversarial tests — v0.2.
-- **P2:** formal schemas, confidence/claim model, benchmark harness, property-based tests.
-- **P2:** independent reproduction of published schemes, each in a separate adapter.
-- **P3:** distributed authorization, quorum policy, transparency and timestamp integration.
-- **P4:** authorized evidence importers and case-report export.
-- **P5:** external cryptography review, formal analysis, and research paper.
-
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for release gates.
-
-## Security reporting
-
-Do not publish exploit details or personal data in public issues. See [`SECURITY.md`](SECURITY.md) for responsible disclosure.
-
-
-## 0.3.1 research additions
-
-- Added a synthetic 2019-style tree-traceback adapter.
-- Added a branching-tree regression test and `opentrace traceback2019-tree-demo`.
-- The adapter is research-only and explicitly non-interoperable with production messengers.
-- The 2019 reference implementation remains the differential-testing target; WhatsApp Traceability Research Lab does not claim cryptographic equivalence until vector-by-vector comparison is completed.
-
-
-## Unified synthetic benchmark (v0.3.3)
-
-Run the path and tree adapters with shared report fields:
-
-```bash
-opentrace benchmark --message-size 256 --max-hops 32 --max-tree-depth 3 --branching-factors 2,3 --repeats 5 --out artifacts/benchmark.json
-```
-
-The JSON report records construction/trace timing samples and summaries, synthetic correctness checks, scenario/recovered nodes and edges, in-memory adapter entries, and a compact JSON output-size proxy. Read [`docs/BENCHMARK_SCHEMA.md`](docs/BENCHMARK_SCHEMA.md) before comparing results.
-
-**Research limitation:** the Python adapters are not yet proven interoperable with the original Rust reference. These timings are not production performance claims, and path-versus-tree runs use different topology shapes.
-
-## Protocol comparison (v0.5.2)
-
-WhatsApp Traceability Research Lab 0.5 compares five synthetic research models in one report:
-
-```bash
-opentrace compare \
+e2ee-traceability compare \
   --message-size 256 \
   --hops 8 \
   --tree-depth 3 \
@@ -210,15 +171,85 @@ opentrace compare \
   --markdown artifacts/protocol-comparison.md
 ```
 
-The comparison covers source recovery, intermediate-hop disclosure, full-tree disclosure, complaint requirements, timing, output size, synthetic state, and trust/authorization assumptions. HTS threshold settings are configurable. All adapters are explicitly marked **synthetic** and **non-interoperable**. HTS payload-size outputs are didactic proxies, not measured signature sizes; minimal-trust gates are simulated, not cryptographically enforced.
+This evaluates:
+- **Disclosed forwarders**: Whether intermediate forwarders remain confidential or are leaked in whole/part.
+- **Reporting requirements**: User complaint receipts vs. unsolicited platform queries.
+- **Timing & payload bounds**: Empirical execution times and didactic payload size proxies.
+- **Collusion resistance**: Single-honest-party scenarios in distributed policy models.
 
-See `docs/PROTOCOL_COMPARISON.md` and `schemas/protocol-comparison.schema.json`.
-
-The two new demos are:
-
+Explore individual research models:
 ```bash
-opentrace hts2025-demo --hops 8 --anonymity-threshold-hops 2 --trace-threshold-hops 4
-opentrace minimal-trust2026-demo --required-reports 3
+# Hop Tracking Signatures threshold model
+e2ee-traceability hts2025-demo --hops 8 --anonymity-threshold-hops 2 --trace-threshold-hops 4
+
+# Minimal-trust multi-party policy simulation
+e2ee-traceability minimal-trust2026-demo --required-reports 3
+
+# Synthetic tree traceback demo
+e2ee-traceability traceback2019-tree-demo
 ```
 
-They translate only high-level research properties into testable behavior; they do **not** implement the papers' cryptographic schemes.
+Sample outputs are available in [`examples/protocol-comparison-sample-v0.5.2.json`](examples/protocol-comparison-sample-v0.5.2.json) and [`examples/protocol-comparison-sample-v0.5.2.md`](examples/protocol-comparison-sample-v0.5.2.md).
+
+## Core capabilities
+
+- 🛡️ **Evidence Manifest v0.2:** Hashes file content and size, links records with a domain-separated SHA-256 chain, signs a restricted canonical-JSON manifest with Ed25519, and verifies bundle inventory completeness.
+- ⚖️ **M-of-N Authorization Envelope:** Policy-bound Ed25519 approvals enforcing distinct trust domains, role definitions, validity windows, and explicit disclosure-mode policy gates.
+- 🌳 **Offline Merkle Proofs:** Creates and verifies offline Merkle inclusion proofs using RFC 9162 domain separation (leaf `0x00`, node `0x01`) and range-based tree hashing.
+- 📊 **Unified Synthetic Benchmark:** Shared measurement schema recording construction and trace timings, node disclosure fractions, memory entries, and output size proxies.
+- 🔬 **Strict Epistemic Discipline:** Distinguishes observed platform data, cryptographic proofs, and probabilistic inferences. Rejects duplicate JSON keys, floating-point ambiguity, and graph cycles.
+- 🎯 **Explicit Disclosure Modes:** `ORIGIN_ONLY` is default. Full `PATH` and `TREE` fixtures require separate explicit authorization.
+
+## Project principles
+
+1. **First originator is not necessarily a named human.** An account credential, cryptographic key, phone binding, and real-world person are distinct claims.
+2. **First-originator mode is the default.** Full path and forwarding tree disclosures are intrusive modes requiring separate, explicit authorization.
+3. **No evidence, no claim.** Every finding must link to cryptographic evidence, an audit trail, and stated epistemic limitations.
+4. **Observed ≠ verified ≠ inferred.** Reports assign explicit evidentiary classes to prevent misinterpreting raw inputs as verified facts.
+5. **No private history lookups.** Adapters process only supplied, lawfully acquired artifacts; they do not query accounts by phone number.
+6. **Cryptography is not a substitute for governance.** Multi-party authorization, scope minimization, and independent audit are mandatory design surfaces.
+7. **No home-grown primitives.** Production cryptographic algorithms reuse vetted libraries (`cryptography`); research algorithms remain cleanly isolated in adapters.
+8. **Do not overclaim timestamps.** Device clocks, server receipt logs, and trusted timestamp tokens (RFC 3161) represent different trust tiers.
+9. **No mandatory blockchain.** Lightweight signed manifests and append-only transparency trees provide portable verification without distributed ledger overhead.
+10. **Research isolation.** Protocol adapters are research models and must not be treated as production implementations until independently audited.
+
+## Repository map
+
+```text
+├── docs/                      # Architectural specifications and threat models
+│   ├── MASTER_SPEC.md         # Comprehensive system specification
+│   ├── RESEARCH_REVIEW.md     # Analysis of CCS 2019, CCS 2021, HTS 2025, NDSS 2026
+│   ├── THREAT_MODEL.md        # Adversarial assumptions and boundaries
+│   ├── PROTOCOL_COMPARISON.md # Benchmark comparison methodology
+│   └── ROADMAP.md             # Implementation milestones (P0 to P5)
+├── schemas/                   # Draft 2020-12 JSON Schemas for all formats
+│   ├── case-manifest.schema.json
+│   ├── authorization-request.schema.json
+│   ├── protocol-comparison.schema.json
+│   └── merkle-inclusion-proof.schema.json
+├── src/opentrace/             # Core library and CLI implementation
+│   ├── canonical.py           # Restricted canonical JSON serializer
+│   ├── integrity.py           # Manifest creation and verification
+│   ├── authorization.py       # Multi-party approval verification
+│   ├── transparency.py        # RFC 9162 offline Merkle inclusion proofs
+│   ├── tracegraph.py          # Synthetic forwarding graph validator
+│   └── protocols/             # Research scheme adapters (2019, 2021, 2025, 2026)
+├── tests/                     # 80+ unit tests with full cross-platform coverage
+└── benchmarks/                # Reproducible microbenchmarks
+```
+
+## Security reporting
+
+If you discover a security vulnerability or private data exposure risk, please review [`SECURITY.md`](SECURITY.md) for responsible disclosure guidelines. Do not report security vulnerabilities in public GitHub issues.
+
+## Citation
+
+```bibtex
+@software{whatsapp_traceability_research_lab_2026,
+  author = {WhatsApp Traceability Research Lab contributors},
+  title = {WhatsApp Traceability Research Lab: Independent Research and Evaluation Framework for E2EE Traceability},
+  year = {2026},
+  url = {https://github.com/AmithKumar1/whatsapp-traceability-research},
+  version = {0.5.2}
+}
+```
