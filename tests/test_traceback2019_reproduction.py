@@ -240,11 +240,14 @@ def test_fixed_deterministic_test_vector() -> None:
         reporting_pointer=PathPointer(rec_bob.tracing_key),
     )
 
-    assert trace_res.origin_reached is True
+    # Protocol-level traceback: absence of predecessor record identifies candidate origin,
+    # but does not claim origin_reached=True or return SUCCESS without external ground truth
+    assert trace_res.origin_reached is False
+    assert trace_res.outcome == "TERMINATED_EARLY"
     assert trace_res.recovered_origin_account == "acct:test-alice"
     assert trace_res.recovered_origin_device == "dev:test-alice-01"
     assert len(trace_res.verified_hops) == 1
-    assert "predecessor_record_absent" in trace_res.termination_reason
+    assert trace_res.termination_reason == "predecessor_record_absent_candidate_origin_unverified"
 
 
 def test_recipient_view_confidentiality_no_predecessor_pointer_exposure() -> None:
@@ -361,22 +364,31 @@ def test_normal_origin_termination_random_predecessor() -> None:
     )
     rec_charlie_verified = rec_msg(charlie.account_id, charlie.device_id, env_bc)
 
-    # Charlie complains: traceback traverses Charlie <- Bob <- Alice
+    # Charlie complains: pure protocol traceback traverses Charlie <- Bob <- Alice
+    # Protocol level: identifies candidate origin without external ground truth oracle
     trace_res = server.trace(
         message=msg,
         reporting_account=charlie.account_id,
         reporting_device=charlie.device_id,
         reporting_pointer=PathPointer(rec_charlie_verified.tracing_key),
-        expected_origin_account=alice.account_id,
     )
 
-    assert trace_res.outcome == "SUCCESS"
-    assert trace_res.origin_reached is True
     assert trace_res.recovered_origin_account == "acct:alice"
     assert trace_res.recovered_origin_device == "dev:alice-01"
     assert trace_res.recovered_hops_count == 2
-    assert trace_res.termination_reason == "predecessor_record_absent_normal_origin_reached"
+    assert trace_res.termination_reason == "predecessor_record_absent_candidate_origin_unverified"
+    assert trace_res.origin_reached is False
+    assert trace_res.outcome == "TERMINATED_EARLY"
     assert len(trace_res.verified_hops) == 2
+
+    # Controlled evaluation layer: verifies candidate origin against ground truth
+    report = run_experiment(hops=3, scenario="valid_linear_path")
+    exp_res = report["traceback_result"]
+    assert exp_res["outcome"] == "SUCCESS"
+    assert exp_res["origin_reached"] is True
+    assert exp_res["recovered_origin_account"] == "acct:alice"
+    assert "predecessor_record_absent" in exp_res["termination_reason"]
+    assert "verified_by_ground_truth" in exp_res["termination_reason"]
 
 
 def test_missing_intermediate_record_terminates_at_intermediate_forwarder() -> None:
@@ -385,7 +397,7 @@ def test_missing_intermediate_record_terminates_at_intermediate_forwarder() -> N
     CRITICAL EPISTEMIC INVARIANT:
     An absent predecessor record in server state (T[mid] is None) does NOT prove the
     true origin was reached. If intermediate records were pruned or dropped, traceback
-    halts at the intermediate forwarder and must not claim true origin was reached.
+    halts at the intermediate forwarder and reports an unverified candidate.
     """
     server = CryptographicTracebackServer()
     alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
@@ -433,29 +445,52 @@ def test_missing_intermediate_record_terminates_at_intermediate_forwarder() -> N
         reporting_account=dave.account_id,
         reporting_device=dave.device_id,
         reporting_pointer=PathPointer(rec_dave_verified.tracing_key),
-        expected_origin_account=alice.account_id,
     )
 
     # Traversal stopped at Charlie; it NEVER reached Alice!
     assert trace_res.outcome == "TERMINATED_EARLY"
     assert trace_res.origin_reached is False
-    assert trace_res.recovered_origin_account is None
+    assert trace_res.recovered_origin_account == "acct:charlie"
     assert trace_res.recovered_hops_count == 1
-    assert trace_res.termination_reason == "predecessor_record_absent_missing_intermediate_evidence"
+    assert trace_res.termination_reason == "predecessor_record_absent_candidate_origin_unverified"
     assert trace_res.verified_hops[0].sender_account == "acct:charlie"
 
-    # Standalone traceback without expected_origin oracle:
-    # Server halts and reports the earliest available sender as candidate,
-    # but cannot prove it is the true origin.
-    standalone_res = server.trace(
+
+def test_server_trace_unverified_candidate_without_oracle() -> None:
+    """Verifies that server.trace() reports an absent record as an unverified candidate.
+
+    EPISTEMIC INVARIANT:
+    Without ground truth, server.trace() cannot mathematically prove that an absent
+    predecessor record represents the true origin. It must report outcome='TERMINATED_EARLY',
+    origin_reached=False, and termination_reason='predecessor_record_absent_candidate_origin_unverified'.
+    """
+    server = CryptographicTracebackServer()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+
+    msg = b"Testing pure protocol tracing behavior"
+    env_ab, rec_bob, tag_ab = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
         message=msg,
-        reporting_account=dave.account_id,
-        reporting_device=dave.device_id,
-        reporting_pointer=PathPointer(rec_dave_verified.tracing_key),
     )
-    assert standalone_res.recovered_origin_account == "acct:charlie"
-    assert standalone_res.recovered_hops_count == 1
-    assert standalone_res.termination_reason == "predecessor_record_absent_in_server_state"
+    rec_bob_verified = rec_msg(bob.account_id, bob.device_id, env_ab)
+
+    trace_res = server.trace(
+        message=msg,
+        reporting_account=bob.account_id,
+        reporting_device=bob.device_id,
+        reporting_pointer=PathPointer(rec_bob_verified.tracing_key),
+    )
+
+    # Must NOT claim origin was proven or return SUCCESS
+    assert trace_res.origin_reached is False
+    assert trace_res.outcome == "TERMINATED_EARLY"
+    assert trace_res.termination_reason == "predecessor_record_absent_candidate_origin_unverified"
+    assert trace_res.recovered_origin_account == "acct:alice"
+    assert trace_res.recovered_hops_count == 1
 
 
 def test_missing_hop_experiment_scenario() -> None:
@@ -465,5 +500,5 @@ def test_missing_hop_experiment_scenario() -> None:
     assert result["outcome"] == "TERMINATED_EARLY"
     assert result["origin_reached"] is False
     assert result["recovered_hops_count"] < 4
-    assert "predecessor_record_absent" in result["termination_reason"]
-    assert "missing_intermediate" in result["termination_reason"]
+    assert result["recovered_origin_account"] is None
+    assert result["termination_reason"] == "predecessor_record_absent_missing_intermediate_evidence"
