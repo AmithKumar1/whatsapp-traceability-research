@@ -29,12 +29,19 @@ Design & Cryptographic Architecture:
        the verifier checks the sender's public key against a trusted DeviceRegistry.
        Self-asserted public keys not present in the registry are rejected.
 
-    4. Formal Theorem Mapping:
-       - Theorem 1 in Tyagi et al. 2019 establishes Platform Trace Confidentiality:
-         unreported messages and intermediate hops remain computationally indistinguishable
+    4. Formal Theorem Mapping (Tyagi et al. CCS 2019 Section 5.1):
+       - Theorem 1 (Platform Trace Confidentiality):
+         Uncomplained messages and forwarding paths are computationally indistinguishable
          from random to the messaging platform under PRF and stream cipher security.
-       - Trace Unforgeability: an adversary cannot frame an honest user as the originator
-         of a message they never sent, protected by RecMsg binding and authenticated routing.
+       - Theorem 2 (User Trace Confidentiality):
+         A recipient receiving a message learns only the message content and its immediate
+         tracing key, and cannot learn predecessor forwarding history or previous tracing
+         keys from its local view. Predecessor pointer ciphertexts `ct` are stored exclusively
+         on the platform server and are never delivered over the E2EE channel to recipients.
+       - Theorem 3 (Trace Unforgeability):
+         Under collision-resistant PRF and authenticated routing assumptions, an adversary
+         cannot frame an honest user as the originator or intermediate forwarder of a message
+         they did not send or forward.
 """
 from __future__ import annotations
 
@@ -80,18 +87,22 @@ def _aes_ctr(key: bytes, block: bytes) -> bytes:
 
 def _compute_extension_payload(
     mid: bytes,
-    ct: bytes,
     message_digest: bytes,
     sender_account: str,
     sender_device: str,
     receiver_account: str,
     receiver_device: str,
 ) -> bytes:
-    """Domain-separated payload for the optional PKI-backed non-repudiation extension."""
+    """Domain-separated payload for the optional PKI-backed non-repudiation extension.
+
+    CRITICAL PRIVACY INVARIANT (CCS 2019 Theorem 2 User Trace Confidentiality):
+    The encrypted predecessor pointer `ct` is NEVER included in the signed payload
+    or delivered to the recipient. The recipient verifies mid and message binding
+    without accessing platform-side predecessor pointer ciphertexts.
+    """
     return (
         DOMAIN_EXTENSION_SIG
         + mid
-        + ct
         + message_digest
         + sender_account.encode("utf-8")
         + b"\x00"
@@ -191,11 +202,18 @@ class CryptographicTraceTag:
 
 @dataclass(frozen=True)
 class MessageEnvelope:
-    """Message payload and tracing metadata delivered over E2EE channel."""
+    """Message payload and tracing metadata delivered over E2EE channel.
+
+    CRITICAL PRIVACY INVARIANT (CCS 2019 Theorem 2 User Trace Confidentiality):
+    The encrypted predecessor pointer `ct` is NEVER delivered to the recipient.
+    Recipients receive only (message, tracing_key, mid, sender/receiver ids).
+    Predecessor pointer ciphertexts `ct` are stored exclusively on the platform.
+    Possession of tracing_key and `ct` would allow a recipient to derive K_enc = H(k)
+    and decrypt k_prev, violating User Trace Confidentiality.
+    """
     message: bytes
     tracing_key: bytes
     mid: bytes
-    ct: bytes
     sender_account: str
     sender_device: str
     receiver_account: str
@@ -206,11 +224,14 @@ class MessageEnvelope:
 
 @dataclass(frozen=True)
 class ReceivedMessageState:
-    """Validated recipient state produced by successful RecMsg verification."""
+    """Validated recipient state produced by successful RecMsg verification.
+
+    Maintains the recipient's authenticated view (message, tracing_key, mid).
+    Does NOT contain predecessor pointer ciphertext `ct` (Theorem 2).
+    """
     message: bytes
     tracing_key: bytes
     mid: bytes
-    ct: bytes
     sender_account: str
     sender_device: str
     receiver_account: str
@@ -297,7 +318,6 @@ def rec_msg(
         message_digest = hashlib.sha256(envelope.message).digest()
         payload = _compute_extension_payload(
             mid=envelope.mid,
-            ct=envelope.ct,
             message_digest=message_digest,
             sender_account=envelope.sender_account,
             sender_device=envelope.sender_device,
@@ -314,7 +334,6 @@ def rec_msg(
         message=envelope.message,
         tracing_key=envelope.tracing_key,
         mid=envelope.mid,
-        ct=envelope.ct,
         sender_account=envelope.sender_account,
         sender_device=envelope.sender_device,
         receiver_account=envelope.receiver_account,
@@ -457,7 +476,6 @@ class CryptographicTracebackServer:
 
                 expected_payload = _compute_extension_payload(
                     mid=mid,
-                    ct=record.ct,
                     message_digest=message_digest,
                     sender_account=record.sender_account,
                     sender_device=record.sender_device,
@@ -553,7 +571,6 @@ def originate_message(
         message_digest = hashlib.sha256(message).digest()
         payload = _compute_extension_payload(
             mid=mid_0,
-            ct=ct_0,
             message_digest=message_digest,
             sender_account=sender.account_id,
             sender_device=sender.device_id,
@@ -579,7 +596,6 @@ def originate_message(
         message=message,
         tracing_key=k_0,
         mid=mid_0,
-        ct=ct_0,
         sender_account=sender.account_id,
         sender_device=sender.device_id,
         receiver_account=receiver_account,
@@ -592,7 +608,6 @@ def originate_message(
         message=message,
         tracing_key=k_0,
         mid=mid_0,
-        ct=ct_0,
         sender_account=sender.account_id,
         sender_device=sender.device_id,
         receiver_account=receiver_account,
@@ -634,7 +649,6 @@ def forward_message(
         message_digest = hashlib.sha256(message).digest()
         payload = _compute_extension_payload(
             mid=mid_next,
-            ct=ct,
             message_digest=message_digest,
             sender_account=claimed_sender_account,
             sender_device=claimed_sender_device,
@@ -664,7 +678,6 @@ def forward_message(
         message=message,
         tracing_key=k_next,
         mid=mid_next,
-        ct=ct,
         sender_account=claimed_sender_account,
         sender_device=claimed_sender_device,
         receiver_account=receiver_account,
@@ -677,10 +690,10 @@ def forward_message(
         message=message,
         tracing_key=k_next,
         mid=mid_next,
-        ct=ct,
         sender_account=claimed_sender_account,
         sender_device=claimed_sender_device,
         receiver_account=receiver_account,
         receiver_device=receiver_device,
     )
+    return envelope, next_received_state, tag
     return envelope, next_received_state, tag

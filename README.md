@@ -148,7 +148,7 @@ e2ee-traceability traceback-reproduction --hops 4 --scenario missing_hop --adver
 e2ee-traceability traceback-reproduction --hops 4 --scenario cyclic_forwarding --adversarial-hop 2
 `
 
-For security definitions (CCS 2019 Theorem 1 Platform Trace Confidentiality), threat models, and claim-to-code mapping, see [docs/REPRODUCING_TYAGI2019.md](docs/REPRODUCING_TYAGI2019.md).
+For formal security definitions (CCS 2019 Theorem 1 Platform Trace Confidentiality, Theorem 2 User Trace Confidentiality, and Theorem 3 Trace Unforgeability), threat models, and claim-to-code mapping, see [docs/REPRODUCING_TYAGI2019.md](docs/REPRODUCING_TYAGI2019.md).
 
 ### 6. Run tests
 
