@@ -13,9 +13,11 @@ from opentrace.protocols.traceback2019_crypto import (
     DeviceIdentity,
     DeviceRegistry,
     DuplicateMessageIdentifierError,
+    ForwarderIdentityMismatchError,
     PathPointer,
     RecMsgVerificationError,
     _aes_ctr,
+    _compute_extension_payload,
     _crprf,
     _kdf_enc,
     forward_message,
@@ -825,3 +827,199 @@ def test_cli_traceback_reproduction_pki_signature_statuses(
     payload = json.loads(captured.out)
     assert "hops_signature_statuses" in payload
     assert payload["hops_signature_statuses"] == ["VALID", "VALID"]
+
+
+def test_forward_message_rejects_sender_account_mismatch() -> None:
+    """Invariant test: forward_message rejects sender whose account does not match received_state."""
+    server = CryptographicTracebackServer()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    charlie = DeviceIdentity.generate("acct:charlie", "dev:charlie-01")
+    eve = DeviceIdentity.generate("acct:eve", "dev:eve-01")
+
+    msg = b"Testing forwarder account binding"
+    env_ab, _, _ = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
+        message=msg,
+    )
+    rec_bob_v = rec_msg(bob.account_id, bob.device_id, env_ab)
+
+    table_size_before = len(server._table)
+    table_keys_before = set(server._table.keys())
+
+    # Eve (wrong account) attempts to forward Bob's received message
+    with pytest.raises(ForwarderIdentityMismatchError, match="Forwarder identity .* does not match recipient identity"):
+        forward_message(
+            server=server,
+            sender=eve,
+            receiver_account=charlie.account_id,
+            receiver_device=charlie.device_id,
+            received_state=rec_bob_v,
+        )
+
+    # Server table MUST remain completely unchanged
+    assert len(server._table) == table_size_before
+    assert set(server._table.keys()) == table_keys_before
+
+
+def test_forward_message_rejects_sender_device_mismatch() -> None:
+    """Invariant test: forward_message rejects sender whose device does not match received_state."""
+    server = CryptographicTracebackServer()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob_primary = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    bob_secondary = DeviceIdentity.generate("acct:bob", "dev:bob-02")
+    charlie = DeviceIdentity.generate("acct:charlie", "dev:charlie-01")
+
+    msg = b"Testing forwarder device binding"
+    env_ab, _, _ = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob_primary.account_id,
+        receiver_device=bob_primary.device_id,
+        message=msg,
+    )
+    rec_bob_v = rec_msg(bob_primary.account_id, bob_primary.device_id, env_ab)
+
+    table_size_before = len(server._table)
+    table_keys_before = set(server._table.keys())
+
+    # Bob's secondary device attempts to forward state delivered to Bob's primary device
+    with pytest.raises(ForwarderIdentityMismatchError, match="Forwarder identity .* does not match recipient identity"):
+        forward_message(
+            server=server,
+            sender=bob_secondary,
+            receiver_account=charlie.account_id,
+            receiver_device=charlie.device_id,
+            received_state=rec_bob_v,
+        )
+
+    # Server table MUST remain completely unchanged
+    assert len(server._table) == table_size_before
+    assert set(server._table.keys()) == table_keys_before
+
+
+def test_normal_forwarding_continues_in_symmetric_and_pki_modes() -> None:
+    """Verifies that legitimate forwarders continue to succeed in both symmetric and PKI modes."""
+    # 1. Symmetric mode
+    server_sym = CryptographicTracebackServer()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    charlie = DeviceIdentity.generate("acct:charlie", "dev:charlie-01")
+
+    msg = b"Testing legitimate forwarding paths"
+    env_ab, _, _ = originate_message(server_sym, alice, bob.account_id, bob.device_id, msg)
+    rec_bob = rec_msg(bob.account_id, bob.device_id, env_ab)
+    env_bc, _, _ = forward_message(server_sym, bob, charlie.account_id, charlie.device_id, rec_bob)
+    rec_charlie = rec_msg(charlie.account_id, charlie.device_id, env_bc)
+    assert rec_charlie.message == msg
+
+    trace_sym = server_sym.trace(msg, charlie.account_id, charlie.device_id, PathPointer(rec_charlie.tracing_key))
+    assert trace_sym.origin_reached is False
+    assert trace_sym.candidate_origin_account == "acct:alice"
+    assert trace_sym.candidate_origin_device == "dev:alice-01"
+    assert len(trace_sym.verified_hops) == 2
+
+    # 2. PKI mode
+    server_pki = CryptographicTracebackServer()
+    registry = DeviceRegistry()
+    registry.register(alice.account_id, alice.device_id, alice.public_key_bytes)
+    registry.register(bob.account_id, bob.device_id, bob.public_key_bytes)
+    registry.register(charlie.account_id, charlie.device_id, charlie.public_key_bytes)
+
+    env_pki_ab, _, _ = originate_message(
+        server_pki, alice, bob.account_id, bob.device_id, msg, attach_extension_signature=True
+    )
+    rec_bob_pki = rec_msg(bob.account_id, bob.device_id, env_pki_ab, registry=registry, require_signature=True)
+    env_pki_bc, _, _ = forward_message(
+        server_pki, bob, charlie.account_id, charlie.device_id, rec_bob_pki, attach_extension_signature=True
+    )
+    rec_charlie_pki = rec_msg(
+        charlie.account_id, charlie.device_id, env_pki_bc, registry=registry, require_signature=True
+    )
+    assert rec_charlie_pki.message == msg
+
+    trace_pki = server_pki.trace(
+        msg, charlie.account_id, charlie.device_id, PathPointer(rec_charlie_pki.tracing_key), registry=registry, require_signature=True
+    )
+    assert trace_pki.candidate_origin_account == "acct:alice"
+    assert trace_pki.candidate_origin_device == "dev:alice-01"
+    assert len(trace_pki.verified_hops) == 2
+    for hop in trace_pki.verified_hops:
+        assert hop.signature_status == "VALID"
+
+
+def test_extension_payload_serialization_rejects_nul_bytes() -> None:
+    """Hardening test: _compute_extension_payload rejects any identifier with NUL bytes."""
+    dummy_mid = b"\x01" * 32
+    dummy_digest = b"\x02" * 32
+
+    # NUL in sender_account
+    with pytest.raises(ValueError, match="cannot contain NUL bytes"):
+        _compute_extension_payload(
+            mid=dummy_mid,
+            message_digest=dummy_digest,
+            sender_account="acct:alice\x00malicious",
+            sender_device="dev:01",
+            receiver_account="acct:bob",
+            receiver_device="dev:02",
+        )
+
+    # NUL in sender_device
+    with pytest.raises(ValueError, match="cannot contain NUL bytes"):
+        _compute_extension_payload(
+            mid=dummy_mid,
+            message_digest=dummy_digest,
+            sender_account="acct:alice",
+            sender_device="dev:\x0001",
+            receiver_account="acct:bob",
+            receiver_device="dev:02",
+        )
+
+    # NUL in receiver_account
+    with pytest.raises(ValueError, match="cannot contain NUL bytes"):
+        _compute_extension_payload(
+            mid=dummy_mid,
+            message_digest=dummy_digest,
+            sender_account="acct:alice",
+            sender_device="dev:01",
+            receiver_account="acct:\x00bob",
+            receiver_device="dev:02",
+        )
+
+    # NUL in receiver_device
+    with pytest.raises(ValueError, match="cannot contain NUL bytes"):
+        _compute_extension_payload(
+            mid=dummy_mid,
+            message_digest=dummy_digest,
+            sender_account="acct:alice",
+            sender_device="dev:01",
+            receiver_account="acct:bob",
+            receiver_device="dev:02\x00",
+        )
+
+
+def test_extension_payload_length_prefixing_disambiguation() -> None:
+    """Hardening test: canonical length prefixing disambiguates adjacent field boundary splits."""
+    dummy_mid = b"\xaa" * 32
+    dummy_digest = b"\xbb" * 32
+
+    payload_a = _compute_extension_payload(
+        mid=dummy_mid,
+        message_digest=dummy_digest,
+        sender_account="alice",
+        sender_device="12",
+        receiver_account="bob",
+        receiver_device="dev",
+    )
+    payload_b = _compute_extension_payload(
+        mid=dummy_mid,
+        message_digest=dummy_digest,
+        sender_account="ali",
+        sender_device="ce12",
+        receiver_account="bob",
+        receiver_device="dev",
+    )
+    assert payload_a != payload_b
