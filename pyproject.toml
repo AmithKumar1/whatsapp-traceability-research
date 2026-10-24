@@ -50,3 +50,6 @@ check_untyped_defs = true
 [tool.ruff]
 line-length = 120
 target-version = "py311"
+[[tool.mypy.overrides]]
+module = ["jsonschema", "jsonschema.*", "yaml", "yaml.*"]
+ignore_missing_imports = true
