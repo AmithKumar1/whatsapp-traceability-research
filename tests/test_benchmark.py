@@ -73,3 +73,45 @@ def test_benchmark_caps_aggregate_tree_workload():
         assert "exceeds 250000 node-runs" in str(exc)
     else:
         raise AssertionError("expected aggregate benchmark workload to be rejected")
+def test_benchmark_reports_iqr_and_hardware_environment():
+    report = run_benchmark(
+        message_size=16,
+        max_hops=2,
+        max_tree_depth=1,
+        branching_factors=(2,),
+        repeats=5,
+    )
+    env = report["environment"]
+    assert "machine" in env
+    assert "processor" in env
+    assert "cpu_count" in env and env["cpu_count"] >= 1
+    assert "total_memory_bytes" in env
+
+    for record in report["records"]:
+        m = record["measurements"]
+        assert "construction_ns_iqr" in m
+        assert "trace_ns_iqr" in m
+        assert m["construction_ns_iqr"] >= 0
+        assert m["trace_ns_iqr"] >= 0
+        assert m["construction_ns_max"] >= m["construction_ns_min"]
+        assert m["trace_ns_max"] >= m["trace_ns_min"]
+
+
+def test_benchmark_supports_explicit_path_hops():
+    report = run_benchmark(
+        message_size=16,
+        path_hops=(2, 8),
+        max_tree_depth=1,
+        branching_factors=(2,),
+        repeats=1,
+    )
+    path_records = [r for r in report["records"] if r["workload"]["kind"] == "linear"]
+    assert len(path_records) == 2
+    assert [r["workload"]["hops"] for r in path_records] == [2, 8]
+
+
+def test_benchmark_rejects_invalid_path_hops():
+    import pytest
+    for bad_hops in ((), (0,), (257,), (2, 2), (-1,)):
+        with pytest.raises(ValueError, match="path_hops"):
+            run_benchmark(path_hops=bad_hops)
