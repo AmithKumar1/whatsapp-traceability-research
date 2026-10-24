@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "e2ee-traceability-lab"
-version = "0.5.3"
+version = "0.6.0"
 description = "Independent research and evaluation framework for traceability and evidence integrity in end-to-end encrypted messaging; not affiliated with WhatsApp"
 readme = "README.md"
 requires-python = ">=3.11"

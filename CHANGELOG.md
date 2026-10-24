@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — 2026-10-24
+
+- Implemented Milestone v0.6.0 Reproducibility Harness (`scripts/reproduce_all.py`), generating 11 verified research artifacts across path traceback, cross-protocol comparison, benchmarks, offline Merkle proofs, and policy simulations.
+- Added programmatic algorithmic and epistemic research invariants verifying candidate-vs-verified origin separation, recipient-view confidentiality (CCS 2019 Theorem 2), forwarder identity binding with server table snapshot invariance, and synthetic non-interoperability verification.
+- Added stable semantic baseline comparison tool (`compare_semantic_baseline`) to isolate deterministic protocol properties and qualitative capabilities from machine CPU timing jitter.
+- Published comprehensive researcher reproducibility guide (`docs/REPRODUCIBILITY.md`) detailing clean-room setup, schema checks, and artifact verification.
+- Formalized benchmark methodology in `docs/BENCHMARKING.md`, defining standardized linear path series ($L \in \{1, 2, 4, 8, 16, 32\}$) and tree workloads ($D \in \{1, 2, 3\}$, $B \in \{2, 3\}$).
+- Added Interquartile Range (IQR) dispersion metrics (`construction_ns_iqr`, `trace_ns_iqr`) to `src/opentrace/benchmark.py` and `schemas/benchmark-report.schema.json` to capture latency variance.
+- Added cross-platform hardware context collection (`machine`, `processor`, `cpu_count`, `total_memory_bytes`) across Linux, Windows, and macOS.
+- Documented 5 essential interpretation boundaries governing benchmark results, data schemas, and research adapter constraints.
+- Expanded test suite to 123 passing unit tests with 100% cross-platform coverage across Python 3.11, 3.12, and 3.13.
+- Refreshed all current-version example reports, schemas, release audit tooling, and release documentation for v0.6.0.
+
 ## 0.5.3 — 2026-10-24
 
 - Added a clean-room cryptographic reproduction of the Path Traceback scheme from Tyagi, Miers, and Ristenpart (*ACM CCS 2019* / *ePrint 2019/981*), including RFC-style domain-separated PRF, KDF, and AES-CTR primitives, recipient-view confidentiality (Theorem 2), and Figure 3 missing-lookup termination.

@@ -1,6 +1,6 @@
 # WhatsApp Traceability Research Lab
 
-[![Release](https://img.shields.io/badge/release-v0.5.3-blue.svg)](https://github.com/AmithKumar1/whatsapp-traceability-research/releases) [![CI](https://github.com/AmithKumar1/whatsapp-traceability-research/actions/workflows/ci.yml/badge.svg)](https://github.com/AmithKumar1/whatsapp-traceability-research/actions/workflows/ci.yml) [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB.svg?logo=python&logoColor=white)](pyproject.toml) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Status](https://img.shields.io/badge/status-research--prototype-informational)](#)
+[![Release](https://img.shields.io/badge/release-v0.6.0-blue.svg)](https://github.com/AmithKumar1/whatsapp-traceability-research/releases) [![CI](https://github.com/AmithKumar1/whatsapp-traceability-research/actions/workflows/ci.yml/badge.svg)](https://github.com/AmithKumar1/whatsapp-traceability-research/actions/workflows/ci.yml) [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB.svg?logo=python&logoColor=white)](pyproject.toml) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Status](https://img.shields.io/badge/status-research--prototype-informational)](#)
 
 > **An independent evaluation and benchmark harness for privacy-preserving source tracing in end-to-end encrypted (E2EE) messaging.**
 
@@ -206,7 +206,7 @@ e2ee-traceability minimal-trust2026-demo --required-reports 3
 e2ee-traceability traceback2019-tree-demo
 ```
 
-Sample outputs are available in [`examples/protocol-comparison-sample-v0.5.3.json`](examples/protocol-comparison-sample-v0.5.3.json) and [`examples/protocol-comparison-sample-v0.5.3.md`](examples/protocol-comparison-sample-v0.5.3.md).
+Sample outputs are available in [`examples/protocol-comparison-sample-v0.6.0.json`](examples/protocol-comparison-sample-v0.6.0.json) and [`examples/protocol-comparison-sample-v0.6.0.md`](examples/protocol-comparison-sample-v0.6.0.md).
 
 ## Core capabilities
 
@@ -269,6 +269,6 @@ If you discover a security vulnerability or private data exposure risk, please r
   title = {WhatsApp Traceability Research Lab: Independent Research and Evaluation Framework for E2EE Traceability},
   year = {2026},
   url = {https://github.com/AmithKumar1/whatsapp-traceability-research},
-  version = {0.5.3}
+  version = {0.6.0}
 }
 ```

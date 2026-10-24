@@ -483,13 +483,16 @@ def verify_research_invariants(artifacts: dict[str, Path]) -> list[dict[str, Any
 
 def compare_semantic_baseline(
     comparison_path: Path,
-    baseline_path: Path = EXAMPLES_DIR / "protocol-comparison-sample-v0.5.3.json",
+    baseline_path: Path | None = None,
 ) -> list[str]:
     """Compare stable semantics of generated comparison report against committed baseline.
 
     Ignores runtime variables: timestamps, execution durations, and random key seeds.
     """
     discrepancies: list[str] = []
+    if baseline_path is None:
+        target = EXAMPLES_DIR / f"protocol-comparison-sample-v{__version__}.json"
+        baseline_path = target if target.exists() else EXAMPLES_DIR / "protocol-comparison-sample-v0.5.3.json"
 
     if not comparison_path.exists():
         return [f"Generated comparison file not found: {comparison_path}"]
@@ -660,13 +663,15 @@ def reproduce_all(
         overall_success = False
 
     # 5. Semantic Baseline Comparison
-    print("[5/5] Comparing stable semantics against committed v0.5.3 baseline...")
+    target_baseline = EXAMPLES_DIR / f"protocol-comparison-sample-v{__version__}.json"
+    active_baseline = target_baseline if target_baseline.exists() else EXAMPLES_DIR / "protocol-comparison-sample-v0.5.3.json"
+    print(f"[5/5] Comparing stable semantics against committed baseline ({active_baseline.name})...")
     comp_artifact = artifacts.get("protocol-comparison.json")
     baseline_discrepancies: list[str] = []
     if comp_artifact:
-        baseline_discrepancies = compare_semantic_baseline(comp_artifact)
+        baseline_discrepancies = compare_semantic_baseline(comp_artifact, baseline_path=active_baseline)
         if not baseline_discrepancies:
-            print("  PASS: Protocol comparison matches committed v0.5.3 baseline semantics perfectly")
+            print("  PASS: Protocol comparison matches committed baseline semantics perfectly")
         else:
             print(f"  FAIL: Found {len(baseline_discrepancies)} semantic discrepancies:")
             for disc in baseline_discrepancies:

@@ -1,0 +1,14 @@
+{
+  "protocol": "hts-2025-synthetic",
+  "message_digest_sha256": "146ed9b290441c47b9d45cad6a791e40732d29a973f32a9bdba5f0bf1343d4ba",
+  "actual_hops": 8,
+  "anonymity_threshold_hops": 2,
+  "trace_threshold_hops": 4,
+  "threshold_gap_hops": 2,
+  "source_recovered": true,
+  "disclosed_forwarders": 0,
+  "succinctness_result_from_paper_model": "paper_positive_result_gap_at_least_two_succinctness_possible_under_assumptions",
+  "didactic_payload_size_proxy_bytes": 48,
+  "interoperable_with_reference": false,
+  "caveat": "threshold-only didactic model; no cryptographic HTS implementation or interoperable signature"
+}

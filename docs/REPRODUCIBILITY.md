@@ -1,7 +1,7 @@
 # Researcher Reproducibility & Independent Evaluation Guide
 
 Canonical repository: https://github.com/AmithKumar1/whatsapp-traceability-research  
-Target Release: **v0.5.3** (Commit `58dd59fb48dc1fe1b9e2a1f9156bb740cf45d068`) / **v0.6.0** Development  
+Target Release: **v0.6.0** (Milestones: Reproducibility Harness & Benchmark Methodology Specification)  
 Scope: Offline cryptographic path traceback reproduction, multi-protocol research comparison, and benchmark replication.
 
 ---
@@ -25,7 +25,7 @@ python scripts/reproduce_all.py --quick
 2. **Experiment & Benchmark Generation:** Generates Tyagi et al. (*ACM CCS 2019*) path traceback experiment reports (honest and adversarial scenarios), multi-protocol comparison reports, benchmark reports, Merkle inclusion proofs, and synthetic evidence demo cases.
 3. **JSON Schema Validation:** Validates all generated JSON artifacts against canonical Draft 2020-12 schemas in `schemas/`.
 4. **Epistemic & Research Invariant Verification:** Verifies candidate-vs-verified origin separation, recipient-view confidentiality (Theorem 2), forwarder identity binding with server snapshot equality, and non-interoperability disclaimers.
-5. **Stable Semantic Comparison:** Compares stable structural semantics against committed release baselines (`examples/protocol-comparison-sample-v0.5.3.json`).
+5. **Stable Semantic Comparison:** Compares stable structural semantics against committed release baselines (`examples/protocol-comparison-sample-v0.6.0.json`).
 6. **Reproduction Manifest Generation:** Emits `artifacts/reproduction/reproduction-manifest.json` recording environment details, source git revision, execution results, and SHA-256 hashes of all generated artifacts.
 
 ---
@@ -154,19 +154,19 @@ Benchmark measurements should adhere to the following protocol:
 ## 7. Independent Checksum & Tag Verification
 
 ### Verifying Published Release Assets
-For any official release (e.g., `v0.5.3`), download the published distribution assets and verify their SHA-256 hashes:
+For any official release (e.g., `v0.6.0`), download the published distribution assets and verify their SHA-256 hashes:
 
 ```bash
 # Using GitHub CLI
-gh release download v0.5.3
+gh release download v0.6.0
 
 # On Linux/macOS
-sha256sum -c e2ee-traceability-lab-v0.5.3.sha256
+sha256sum -c e2ee-traceability-lab-v0.6.0.sha256
 
 # On Windows PowerShell
-Get-FileHash -Algorithm SHA256 e2ee_traceability_lab-0.5.3-py3-none-any.whl
-Get-FileHash -Algorithm SHA256 e2ee_traceability_lab-0.5.3.tar.gz
-Get-FileHash -Algorithm SHA256 e2ee-traceability-lab-v0.5.3-source.zip
+Get-FileHash -Algorithm SHA256 e2ee_traceability_lab-0.6.0-py3-none-any.whl
+Get-FileHash -Algorithm SHA256 e2ee_traceability_lab-0.6.0.tar.gz
+Get-FileHash -Algorithm SHA256 e2ee-traceability-lab-v0.6.0-source.zip
 ```
 
 ### Verifying Reproduction Artifacts

@@ -1,4 +1,4 @@
-# Pinned direct test and release-validation tools for v0.5.3.
+# Pinned direct test and release-validation tools for v0.6.0.
 # This is not a fully transitive lockfile; package transitive dependencies
 # are resolved within each pinned package's declared constraints.
 cryptography==50.0.2
