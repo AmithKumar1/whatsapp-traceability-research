@@ -252,6 +252,9 @@ def main() -> None:
                 "recovered_origin_account": report["traceback_result"]["recovered_origin_account"],
                 "recovered_origin_device": report["traceback_result"]["recovered_origin_device"],
                 "recovered_hops_count": report["traceback_result"]["recovered_hops_count"],
+                "hops_signature_statuses": [
+                    h["signature_status"] for h in report["traceback_result"]["verified_hops"]
+                ],
                 "termination_reason": report["traceback_result"]["termination_reason"],
                 "measurements": report["measurements"],
             })
