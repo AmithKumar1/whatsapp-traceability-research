@@ -93,6 +93,13 @@ def _aes_ctr(key: bytes, block: bytes) -> bytes:
     return ctx.update(block) + ctx.finalize()
 
 
+def _encode_identity_field(value: str, field_name: str) -> bytes:
+    if "\x00" in value:
+        raise ValueError(f"Identity field {field_name!r} cannot contain NUL bytes: {value!r}")
+    encoded = value.encode("utf-8")
+    return len(encoded).to_bytes(4, "big") + encoded
+
+
 def _compute_extension_payload(
     mid: bytes,
     message_digest: bytes,
@@ -108,19 +115,22 @@ def _compute_extension_payload(
     The raw encrypted predecessor pointer `ct` is NEVER delivered to the recipient.
     Instead, ct_digest = H(ct) binds predecessor pointer integrity into the signature,
     enabling server-side link authentication without leaking k_prev or ct to recipients.
+
+    CANONICAL SERIALIZATION:
+    Identity fields are validated to prohibit NUL bytes and are encoded using
+    4-byte big-endian length prefixing to prevent field-boundary manipulation or
+    canonicalization attacks.
     """
     return (
         DOMAIN_EXTENSION_SIG
         + mid
         + message_digest
+        + len(ct_digest).to_bytes(4, "big")
         + ct_digest
-        + sender_account.encode("utf-8")
-        + b"\x00"
-        + sender_device.encode("utf-8")
-        + b"\x00"
-        + receiver_account.encode("utf-8")
-        + b"\x00"
-        + receiver_device.encode("utf-8")
+        + _encode_identity_field(sender_account, "sender_account")
+        + _encode_identity_field(sender_device, "sender_device")
+        + _encode_identity_field(receiver_account, "receiver_account")
+        + _encode_identity_field(receiver_device, "receiver_device")
     )
 
 
@@ -130,6 +140,10 @@ class RecMsgVerificationError(ValueError):
 
 class DuplicateMessageIdentifierError(ValueError):
     """Raised when attempting to store a message with an already existing message identifier (mid)."""
+
+
+class ForwarderIdentityMismatchError(ValueError):
+    """Raised when forwarding sender identity does not match recipient recorded in ReceivedMessageState."""
 
 
 class DeviceRegistry:
@@ -740,6 +754,16 @@ def forward_message(
     encrypts previous tracing key c_ptr = AES-CTR(H(k_next), received_state.tracing_key),
     and stores record in server table.
     """
+    if (
+        sender.account_id != received_state.receiver_account
+        or sender.device_id != received_state.receiver_device
+    ):
+        raise ForwarderIdentityMismatchError(
+            f"Forwarder identity ({sender.account_id}, {sender.device_id}) does not match "
+            f"recipient identity recorded in received state ({received_state.receiver_account}, {received_state.receiver_device}). "
+            "Only the recipient device that received the message may forward it."
+        )
+
     message = received_state.message
     k_next = fixed_next_tracing_key if fixed_next_tracing_key is not None else os.urandom(TRACING_KEY_SIZE)
     mid_next = _crprf(k_next, message)

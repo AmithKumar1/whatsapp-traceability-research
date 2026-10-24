@@ -5,6 +5,7 @@ from .traceback2019_tree import TraceTree
 from .traceback2019_crypto import (
     CryptographicTracebackServer,
     DeviceIdentity,
+    ForwarderIdentityMismatchError,
     PathPointer,
     TracebackExecutionResult,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "TraceTree",
     "CryptographicTracebackServer",
     "DeviceIdentity",
+    "ForwarderIdentityMismatchError",
     "PathPointer",
     "TracebackExecutionResult",
     "SourceTracking2021Synthetic",
