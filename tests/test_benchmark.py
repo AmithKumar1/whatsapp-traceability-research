@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from opentrace.benchmark import BENCHMARK_SCHEMA, run_benchmark
 
 

@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Tuple
 import hashlib
-import hmac
 import os
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes

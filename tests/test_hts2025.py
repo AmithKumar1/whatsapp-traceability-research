@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from opentrace.protocols.hts2025 import HopTrackingSignatures2025Synthetic
 
 

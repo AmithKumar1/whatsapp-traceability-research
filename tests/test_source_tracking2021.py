@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from opentrace.protocols.source_tracking2021 import SourceTracking2021Synthetic
 
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from opentrace.protocols.traceback2019 import (
     SyntheticPathServer, build_path, generate_tag, new_message, verify_tag,
 )

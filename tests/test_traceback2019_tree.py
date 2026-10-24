@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from opentrace.protocols.traceback2019_tree import demo_tree, TraceTree
 
 

@@ -11,7 +11,6 @@ import json
 import os
 import platform
 import statistics
-import sys
 import time
 from typing import Any
 

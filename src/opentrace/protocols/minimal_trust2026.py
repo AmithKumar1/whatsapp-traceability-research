@@ -13,7 +13,7 @@ https://www.ndss-symposium.org/ndss-paper/abuse-resistant-traceability-with-mini
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Literal
+from typing import Any, Literal
 
 TrustedRole = Literal["platform", "regulator", "moderator", "recipient"]
 VALID_ROLES: tuple[TrustedRole, ...] = ("platform", "regulator", "moderator", "recipient")
@@ -82,7 +82,7 @@ class MinimalTrustTraceability2026Synthetic:
             failed_gates=tuple(failed),
         )
 
-    def single_honest_role_scenarios(self, *, required_reports: int = 3) -> list[dict[str, object]]:
+    def single_honest_role_scenarios(self, *, required_reports: int = 3) -> list[dict[str, Any]]:
         """Demonstrate gates that block an innocent-message trace in this model.
 
         The assumptions below are supplied by the simulation; they are not
@@ -90,9 +90,9 @@ class MinimalTrustTraceability2026Synthetic:
         """
         if required_reports < 2:
             raise ValueError("required_reports must be at least 2 for the recipient scenario")
-        decisions: list[dict[str, object]] = []
+        decisions: list[dict[str, Any]] = []
         for role in VALID_ROLES:
-            gates: dict[str, object] = {
+            gates: dict[str, Any] = {
                 "source_account": "synthetic-innocent-origin",
                 "verified_distinct_reports": required_reports,
                 "required_reports": required_reports,
@@ -111,7 +111,7 @@ class MinimalTrustTraceability2026Synthetic:
                 # Honest recipients contribute one verified report each; the
                 # simulated adversary cannot inflate the count with duplicates.
                 gates["verified_distinct_reports"] = required_reports - 1
-            decision = self.assess_trace(**gates)  # type: ignore[arg-type]
+            decision = self.assess_trace(**gates)
             decisions.append({
                 "sole_honest_role": role,
                 "innocent_message_trace_blocked": not decision.trace_allowed,

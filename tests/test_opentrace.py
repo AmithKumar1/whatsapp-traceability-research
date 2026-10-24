@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -100,7 +101,7 @@ def test_missing_parent_rejected(tmp_path: Path) -> None:
 
 
 def test_cycle_rejected() -> None:
-    events = [
+    events: list[dict[str, Any]] = [
         {"event_id":"origin","event_type":"ORIGIN","actor_id":"acct:o","timestamp":"2026-10-23T08:00:00Z","time_source":"synthetic","parent_event_id":None,"content_ref":"c","evidence_class":"synthetic"},
         {"event_id":"b","event_type":"FORWARD","actor_id":"acct:b","timestamp":"2026-10-23T08:01:00Z","time_source":"synthetic","parent_event_id":"c","content_ref":"c","evidence_class":"synthetic"},
         {"event_id":"c","event_type":"FORWARD","actor_id":"acct:c","timestamp":"2026-10-23T08:02:00Z","time_source":"synthetic","parent_event_id":"b","content_ref":"c","evidence_class":"synthetic"},
@@ -331,3 +332,49 @@ def test_authorization_rejects_policy_substitution(tmp_path: Path) -> None:
     policy["min_approvals"] = 1  # Retain policy_id but change the signed policy bytes.
     with pytest.raises(AuthorizationError, match="policy version|insufficient valid approvals"):
         verify_authorization(request, approvals, trust, policy, now=now, trust_base_dir=tmp_path)
+
+
+def test_build_trace_report_origin_only() -> None:
+    events: list[dict[str, Any]] = [
+        {"event_id": "origin", "event_type": "ORIGIN", "actor_id": "acct:origin", "timestamp": "2026-10-23T08:00:00Z", "time_source": "synthetic", "parent_event_id": None, "content_ref": "content:1", "evidence_class": "synthetic"},
+        {"event_id": "fwd-1", "event_type": "FORWARD", "actor_id": "acct:fwd1", "timestamp": "2026-10-23T08:01:00Z", "time_source": "synthetic", "parent_event_id": "origin", "content_ref": "content:1", "evidence_class": "synthetic"},
+        {"event_id": "rep-1", "event_type": "REPORT", "actor_id": "acct:reporter", "timestamp": "2026-10-23T08:02:00Z", "time_source": "synthetic", "parent_event_id": "fwd-1", "content_ref": "content:1", "evidence_class": "synthetic"},
+    ]
+    report = build_trace_report(events, "rep-1", "ORIGIN_ONLY")
+    assert report["mode"] == "ORIGIN_ONLY"
+    assert report["first_originator_candidate"]["actor_id"] == "acct:origin"
+    assert "reported_path_oldest_to_newest" not in report
+    assert "forwarding_tree_in_supplied_dataset" not in report
+
+
+def test_build_trace_report_path_and_tree_modes() -> None:
+    events: list[dict[str, Any]] = [
+        {"event_id": "origin", "event_type": "ORIGIN", "actor_id": "acct:origin", "timestamp": "2026-10-23T08:00:00Z", "time_source": "synthetic", "parent_event_id": None, "content_ref": "content:1", "evidence_class": "synthetic"},
+        {"event_id": "fwd-1", "event_type": "FORWARD", "actor_id": "acct:fwd1", "timestamp": "2026-10-23T08:01:00Z", "time_source": "synthetic", "parent_event_id": "origin", "content_ref": "content:1", "evidence_class": "synthetic"},
+        {"event_id": "fwd-2", "event_type": "FORWARD", "actor_id": "acct:fwd2", "timestamp": "2026-10-23T08:01:30Z", "time_source": "synthetic", "parent_event_id": "origin", "content_ref": "content:1", "evidence_class": "synthetic"},
+        {"event_id": "rep-1", "event_type": "REPORT", "actor_id": "acct:reporter", "timestamp": "2026-10-23T08:02:00Z", "time_source": "synthetic", "parent_event_id": "fwd-1", "content_ref": "content:1", "evidence_class": "synthetic"},
+    ]
+    path_report = build_trace_report(events, "rep-1", "PATH")
+    assert "reported_path_oldest_to_newest" in path_report
+    path_ids = [e["event_id"] for e in path_report["reported_path_oldest_to_newest"]]
+    assert path_ids == ["origin", "fwd-1", "rep-1"]
+    assert "forwarding_tree_in_supplied_dataset" not in path_report
+
+    tree_report = build_trace_report(events, "rep-1", "TREE")
+    assert "forwarding_tree_in_supplied_dataset" in tree_report
+    tree_ids = [e["event_id"] for e in tree_report["forwarding_tree_in_supplied_dataset"]]
+    assert set(tree_ids) == {"origin", "fwd-1", "fwd-2", "rep-1"}
+
+
+def test_build_trace_report_rejects_invalid_inputs() -> None:
+    events: list[dict[str, Any]] = [
+        {"event_id": "origin", "event_type": "ORIGIN", "actor_id": "acct:origin", "timestamp": "2026-10-23T08:00:00Z", "time_source": "synthetic", "parent_event_id": None, "content_ref": "content:1", "evidence_class": "synthetic"},
+        {"event_id": "fwd-1", "event_type": "FORWARD", "actor_id": "acct:fwd1", "timestamp": "2026-10-23T08:01:00Z", "time_source": "synthetic", "parent_event_id": "origin", "content_ref": "content:1", "evidence_class": "synthetic"},
+        {"event_id": "rep-1", "event_type": "REPORT", "actor_id": "acct:reporter", "timestamp": "2026-10-23T08:02:00Z", "time_source": "synthetic", "parent_event_id": "fwd-1", "content_ref": "content:1", "evidence_class": "synthetic"},
+    ]
+    with pytest.raises(TraceGraphError, match="unsupported disclosure mode"):
+        build_trace_report(events, "rep-1", "FULL_INTERCEPTION")
+    with pytest.raises(TraceGraphError, match="reported_event_id not found"):
+        build_trace_report(events, "non-existent-event")
+    with pytest.raises(TraceGraphError, match="must refer to a REPORT event"):
+        build_trace_report(events, "fwd-1")

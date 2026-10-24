@@ -56,7 +56,7 @@ def main() -> None:
     merkle_demo.add_argument("--out", type=Path, required=True, help="output JSON path")
     merkle_demo.add_argument("--index", type=int, default=2, help="synthetic entry index to prove (0-based)")
 
-    traceback_tree = sub.add_parser("traceback2019-tree-demo", help="run the synthetic 2019-style tree-traceback demo")
+    sub.add_parser("traceback2019-tree-demo", help="run the synthetic 2019-style tree-traceback demo")
 
     compare_parser = sub.add_parser("compare", help="compare the implemented synthetic traceability adapters in one controlled scenario")
     compare_parser.add_argument("--message-size", type=int, default=256)
@@ -69,7 +69,7 @@ def main() -> None:
     compare_parser.add_argument("--out", type=Path, default=None, help="optional JSON comparison report")
     compare_parser.add_argument("--markdown", type=Path, default=None, help="optional Markdown comparison report")
 
-    source_demo = sub.add_parser("source-tracking2021-demo", help="run the synthetic source-only disclosure research adapter")
+    sub.add_parser("source-tracking2021-demo", help="run the synthetic source-only disclosure research adapter")
 
     hts_demo = sub.add_parser("hts2025-demo", help="run the didactic, non-cryptographic HTS threshold model")
     hts_demo.add_argument("--message-size", type=int, default=64)
@@ -161,27 +161,27 @@ def main() -> None:
                 "summary": report["summary"],
             })
         elif args.command == "source-tracking2021-demo":
-            protocol = SourceTracking2021Synthetic(authority_key=b"open-trace-demo-key-2026".ljust(32, b"\0"))
-            receipt = protocol.issue_receipt(b"synthetic-viral-message", "account-origin")
-            complaint = protocol.create_complaint(receipt)
-            disclosure = protocol.trace_source(complaint)
+            source_protocol = SourceTracking2021Synthetic(authority_key=b"open-trace-demo-key-2026".ljust(32, b"\0"))
+            receipt = source_protocol.issue_receipt(b"synthetic-viral-message", "account-origin")
+            complaint = source_protocol.create_complaint(receipt)
+            disclosure = source_protocol.trace_source(complaint)
             _print_json({"protocol": disclosure.protocol, "interoperable_with_reference": disclosure.interoperable_with_reference, "message_digest": disclosure.message_digest, "source_account": disclosure.source_account, "disclosed_forwarders": disclosure.disclosed_forwarders, "cryptographic_claim": disclosure.cryptographic_claim})
         elif args.command == "hts2025-demo":
             if args.message_size <= 0:
                 raise ValueError("message-size must be positive")
-            protocol = HopTrackingSignatures2025Synthetic(
+            hts_protocol = HopTrackingSignatures2025Synthetic(
                 anonymity_threshold_hops=args.anonymity_threshold_hops,
                 trace_threshold_hops=args.trace_threshold_hops,
             )
             _print_json({
-                **protocol.evaluate(b"M" * args.message_size, args.hops).as_dict(),
+                **hts_protocol.evaluate(b"M" * args.message_size, args.hops).as_dict(),
                 "caveat": "threshold-only didactic model; no cryptographic HTS implementation or interoperable signature",
             })
         elif args.command == "minimal-trust2026-demo":
-            protocol = MinimalTrustTraceability2026Synthetic()
+            min_trust_protocol = MinimalTrustTraceability2026Synthetic()
             if args.required_reports < 2:
                 raise ValueError("required-reports must be at least 2")
-            valid = protocol.assess_trace(
+            valid = min_trust_protocol.assess_trace(
                 source_account="synthetic-origin",
                 verified_distinct_reports=args.required_reports,
                 required_reports=args.required_reports,
@@ -189,7 +189,7 @@ def main() -> None:
                 moderator_approved=True,
                 platform_release_authorized=True,
             )
-            innocent = protocol.assess_trace(
+            innocent = min_trust_protocol.assess_trace(
                 source_account="synthetic-innocent-origin",
                 verified_distinct_reports=args.required_reports,
                 required_reports=args.required_reports,
@@ -198,11 +198,11 @@ def main() -> None:
                 platform_release_authorized=True,
             )
             _print_json({
-                "protocol": protocol.protocol_id,
+                "protocol": min_trust_protocol.protocol_id,
                 "interoperable_with_reference": False,
                 "valid_synthetic_case": valid.as_dict(),
                 "innocent_control_case": innocent.as_dict(),
-                "single_honest_role_scenarios": protocol.single_honest_role_scenarios(required_reports=args.required_reports),
+                "single_honest_role_scenarios": min_trust_protocol.single_honest_role_scenarios(required_reports=args.required_reports),
                 "caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee",
             })
         elif args.command == "traceback2019-tree-demo":
@@ -222,9 +222,9 @@ def main() -> None:
                 entry = args.entry_text.encode("utf-8")
             else:
                 entry = args.entry_file.read_bytes()
-            valid = verify_inclusion(entry, proof)
-            _print_json({"status": "VALID" if valid else "INVALID", "proof_valid": valid})
-            if not valid:
+            is_valid = verify_inclusion(entry, proof)
+            _print_json({"status": "VALID" if is_valid else "INVALID", "proof_valid": is_valid})
+            if not is_valid:
                 raise TransparencyError("Merkle inclusion proof did not verify")
     except (IntegrityError, AuthorizationError, TransparencyError, ValueError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

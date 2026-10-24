@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from opentrace.protocols.minimal_trust2026 import MinimalTrustTraceability2026Synthetic
 
 

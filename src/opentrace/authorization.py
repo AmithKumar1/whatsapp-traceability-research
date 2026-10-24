@@ -10,10 +10,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import re
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -239,7 +238,7 @@ def sign_approval(
 
 def verify_authorization(
     request: Mapping[str, Any],
-    approvals: list[Mapping[str, Any]],
+    approvals: Sequence[Mapping[str, Any]],
     trust_registry: Mapping[str, Any],
     policy: Mapping[str, Any],
     *,

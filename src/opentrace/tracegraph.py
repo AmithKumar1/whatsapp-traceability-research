@@ -19,7 +19,7 @@ class TraceGraphError(ValueError):
     """Raised for malformed or contradictory event graphs."""
 
 
-def _parse_rfc3339(value: str, event_id: str) -> datetime:
+def _parse_rfc3339(value: Any, event_id: str) -> datetime:
     if not isinstance(value, str):
         raise TraceGraphError(f"Event {event_id}: timestamp must be a string")
     try:

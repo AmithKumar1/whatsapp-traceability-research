@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from . import __version__
 from .integrity import seal_case
@@ -17,7 +18,7 @@ def create_demo(output_dir: Path) -> Path:
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     case_id = "SYNTHETIC-CASE-001"
-    case = {
+    case: dict[str, Any] = {
         "case_id": case_id,
         "scope": "synthetic-demonstration-only",
         "authorization": {
@@ -29,7 +30,7 @@ def create_demo(output_dir: Path) -> Path:
         "source_identity_model": "synthetic pseudonymous actor IDs only",
         "created_by_tool_version": __version__,
     }
-    events = [
+    events: list[dict[str, Any]] = [
         {
             "event_id": "evt-001", "event_type": "ORIGIN", "actor_id": "acct:synthetic-A",
             "timestamp": "2026-10-23T08:30:00Z", "time_source": "simulated-client-clock",
@@ -61,9 +62,10 @@ def create_demo(output_dir: Path) -> Path:
             "parent_event_id": "evt-005", "content_ref": "content:demo-001", "evidence_class": "synthetic",
         },
     ]
-    report = build_trace_report(events, case["reported_event_id"], "ORIGIN_ONLY")
-    path_demo = build_trace_report(events, case["reported_event_id"], "PATH")
-    tree_demo = build_trace_report(events, case["reported_event_id"], "TREE")
+    reported_id = str(case["reported_event_id"])
+    report = build_trace_report(events, reported_id, "ORIGIN_ONLY")
+    path_demo = build_trace_report(events, reported_id, "PATH")
+    tree_demo = build_trace_report(events, reported_id, "TREE")
     _write_json(output_dir / "case.json", case)
     _write_json(output_dir / "events.json", events)
     _write_json(output_dir / "trace.json", report)

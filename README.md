@@ -65,9 +65,15 @@ python benchmarks/benchmark_merkle.py --sizes 10 100 1000 --repeats 5 --out ./ar
 pytest
 ```
 
-Or run without installing the entry point:
+Or run with `PYTHONPATH=src` without installing the entry point:
 
 ```bash
+# macOS/Linux:
+PYTHONPATH=src python -m opentrace demo --out ./artifacts/demo-case
+PYTHONPATH=src python -m opentrace verify ./artifacts/demo-case
+
+# Windows PowerShell:
+$env:PYTHONPATH = "src"
 python -m opentrace demo --out ./artifacts/demo-case
 python -m opentrace verify ./artifacts/demo-case
 ```
