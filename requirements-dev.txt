@@ -1,7 +1,7 @@
 # Pinned direct test and release-validation tools for v0.5.2.
 # This is not a fully transitive lockfile; package transitive dependencies
 # are resolved within each pinned package's declared constraints.
-cryptography==46.0.4
+cryptography==50.0.2
 pytest==9.0.2
 jsonschema==4.26.0
 build==1.6.1
