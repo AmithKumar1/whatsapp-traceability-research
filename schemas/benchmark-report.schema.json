@@ -41,6 +41,23 @@
         },
         "platform": {
           "type": "string"
+        },
+        "machine": {
+          "type": "string"
+        },
+        "processor": {
+          "type": "string"
+        },
+        "cpu_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "total_memory_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
         }
       },
       "additionalProperties": true
@@ -140,6 +157,16 @@
               "serialized_trace_bytes": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "construction_ns_iqr": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Interquartile range (IQR = Q3 - Q1) of construction time in nanoseconds."
+              },
+              "trace_ns_iqr": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Interquartile range (IQR = Q3 - Q1) of trace time in nanoseconds."
               }
             },
             "additionalProperties": true

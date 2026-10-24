@@ -32,6 +32,50 @@ def _median(values: list[int]) -> int:
     return int(statistics.median(values))
 
 
+def _iqr(values: list[int]) -> int:
+    """Calculate the Interquartile Range (IQR = Q3 - Q1) of an integer sample set."""
+    if len(values) < 2:
+        return 0
+    q1, _, q3 = statistics.quantiles(values, n=4)
+    return max(0, int(round(q3 - q1)))
+
+
+def get_system_memory_bytes() -> int | None:
+    """Safely query total system memory in bytes, returning None if unavailable."""
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+
+            stat = MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                return int(stat.ullTotalPhys)
+        except Exception:
+            pass
+    sysconf = getattr(os, "sysconf", None)
+    if sysconf is not None:
+        try:
+            pages = sysconf("SC_PHYS_PAGES")
+            page_size = sysconf("SC_PAGE_SIZE")
+            return int(pages * page_size)
+        except Exception:
+            pass
+    return None
+
+
 def _tree_to_dict(tree: TraceTree) -> dict[str, Any]:
     return {"uid": tree.uid, "children": [_tree_to_dict(child) for child in tree.children]}
 
@@ -120,9 +164,11 @@ def _benchmark_path(message: bytes, hops: int, repeats: int) -> dict[str, Any]:
             "construction_ns_median": _median(build_samples),
             "construction_ns_min": min(build_samples),
             "construction_ns_max": max(build_samples),
+            "construction_ns_iqr": _iqr(build_samples),
             "trace_ns_median": _median(trace_samples),
             "trace_ns_min": min(trace_samples),
             "trace_ns_max": max(trace_samples),
+            "trace_ns_iqr": _iqr(trace_samples),
             "state_entries": state_entries,
             "serialized_trace_bytes": response_bytes,
         },
@@ -179,9 +225,11 @@ def _benchmark_tree(
             "construction_ns_median": _median(build_samples),
             "construction_ns_min": min(build_samples),
             "construction_ns_max": max(build_samples),
+            "construction_ns_iqr": _iqr(build_samples),
             "trace_ns_median": _median(trace_samples),
             "trace_ns_min": min(trace_samples),
             "trace_ns_max": max(trace_samples),
+            "trace_ns_iqr": _iqr(trace_samples),
             "state_entries": state_entries,
             "serialized_trace_bytes": response_bytes,
         },
@@ -205,6 +253,7 @@ def run_benchmark(
     max_tree_depth: int = 3,
     branching_factors: tuple[int, ...] = (2,),
     repeats: int = 3,
+    path_hops: tuple[int, ...] | None = None,
 ) -> dict[str, Any]:
     """Run a common report schema over the implemented synthetic path/tree adapters."""
     if not isinstance(message_size, int) or not 1 <= message_size <= 1_000_000:
@@ -233,11 +282,19 @@ def run_benchmark(
             "estimated tree workload exceeds 250000 node-runs; reduce repeats, depth, or branching factors"
         )
 
+    if path_hops is not None:
+        if not path_hops or any(not isinstance(h, int) or h < 1 or h > 256 for h in path_hops):
+            raise ValueError("path_hops must contain integers from 1 through 256")
+        if len(set(path_hops)) != len(path_hops):
+            raise ValueError("path_hops must not contain duplicates")
+        selected_hops = path_hops
+    else:
+        selected_hops = tuple(hops for hops in _PATH_HOP_SERIES if hops <= max_hops)
+
     message = b"M" * message_size
     records: list[dict[str, Any]] = []
-    for hops in _PATH_HOP_SERIES:
-        if hops <= max_hops:
-            records.append(_benchmark_path(message, hops, repeats))
+    for hops in selected_hops:
+        records.append(_benchmark_path(message, hops, repeats))
     for depth in range(1, max_tree_depth + 1):
         for factor in branching_factors:
             records.append(_benchmark_tree(message, depth, factor, repeats))
@@ -250,10 +307,14 @@ def run_benchmark(
             "python": platform.python_version(),
             "implementation": platform.python_implementation(),
             "platform": platform.platform(),
+            "machine": platform.machine(),
+            "processor": platform.processor() or "unknown",
+            "cpu_count": os.cpu_count() or 1,
+            "total_memory_bytes": get_system_memory_bytes(),
         },
         "method": {
             "timing_clock": "time.perf_counter_ns",
-            "summary": "median/min/max over fresh synthetic workload runs",
+            "summary": "median/iqr/min/max over fresh synthetic workload runs",
             "message_content": "repeated synthetic byte M; message body not written to report",
             "identities": "synthetic sequential integer identifiers only",
             "protocol_status": "research adapter; not reference-interoperable; not production-certified",
