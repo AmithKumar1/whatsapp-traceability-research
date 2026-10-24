@@ -56,6 +56,8 @@ def test_default_symmetric_mode_without_signatures() -> None:
     result = report["traceback_result"]
     assert result["outcome"] == "SUCCESS"
     assert result["origin_reached"] is True
+    assert result["candidate_origin_account"] == "acct:alice"
+    assert result["candidate_origin_device"] == "dev:alice-primary"
     assert result["recovered_origin_account"] == "acct:alice"
     assert result["recovered_origin_device"] == "dev:alice-primary"
     assert result["recovered_hops_count"] == 4
@@ -244,8 +246,10 @@ def test_fixed_deterministic_test_vector() -> None:
     # but does not claim origin_reached=True or return SUCCESS without external ground truth
     assert trace_res.origin_reached is False
     assert trace_res.outcome == "TERMINATED_EARLY"
-    assert trace_res.recovered_origin_account == "acct:test-alice"
-    assert trace_res.recovered_origin_device == "dev:test-alice-01"
+    assert trace_res.candidate_origin_account == "acct:test-alice"
+    assert trace_res.candidate_origin_device == "dev:test-alice-01"
+    assert trace_res.recovered_origin_account is None
+    assert trace_res.recovered_origin_device is None
     assert len(trace_res.verified_hops) == 1
     assert trace_res.termination_reason == "predecessor_record_absent_candidate_origin_unverified"
 
@@ -373,8 +377,10 @@ def test_normal_origin_termination_random_predecessor() -> None:
         reporting_pointer=PathPointer(rec_charlie_verified.tracing_key),
     )
 
-    assert trace_res.recovered_origin_account == "acct:alice"
-    assert trace_res.recovered_origin_device == "dev:alice-01"
+    assert trace_res.candidate_origin_account == "acct:alice"
+    assert trace_res.candidate_origin_device == "dev:alice-01"
+    assert trace_res.recovered_origin_account is None
+    assert trace_res.recovered_origin_device is None
     assert trace_res.recovered_hops_count == 2
     assert trace_res.termination_reason == "predecessor_record_absent_candidate_origin_unverified"
     assert trace_res.origin_reached is False
@@ -386,7 +392,10 @@ def test_normal_origin_termination_random_predecessor() -> None:
     exp_res = report["traceback_result"]
     assert exp_res["outcome"] == "SUCCESS"
     assert exp_res["origin_reached"] is True
+    assert exp_res["candidate_origin_account"] == "acct:alice"
+    assert exp_res["candidate_origin_device"] == "dev:alice-primary"
     assert exp_res["recovered_origin_account"] == "acct:alice"
+    assert exp_res["recovered_origin_device"] == "dev:alice-primary"
     assert "predecessor_record_absent" in exp_res["termination_reason"]
     assert "verified_by_ground_truth" in exp_res["termination_reason"]
 
@@ -450,7 +459,8 @@ def test_missing_intermediate_record_terminates_at_intermediate_forwarder() -> N
     # Traversal stopped at Charlie; it NEVER reached Alice!
     assert trace_res.outcome == "TERMINATED_EARLY"
     assert trace_res.origin_reached is False
-    assert trace_res.recovered_origin_account == "acct:charlie"
+    assert trace_res.candidate_origin_account == "acct:charlie"
+    assert trace_res.recovered_origin_account is None
     assert trace_res.recovered_hops_count == 1
     assert trace_res.termination_reason == "predecessor_record_absent_candidate_origin_unverified"
     assert trace_res.verified_hops[0].sender_account == "acct:charlie"
@@ -489,7 +499,8 @@ def test_server_trace_unverified_candidate_without_oracle() -> None:
     assert trace_res.origin_reached is False
     assert trace_res.outcome == "TERMINATED_EARLY"
     assert trace_res.termination_reason == "predecessor_record_absent_candidate_origin_unverified"
-    assert trace_res.recovered_origin_account == "acct:alice"
+    assert trace_res.candidate_origin_account == "acct:alice"
+    assert trace_res.recovered_origin_account is None
     assert trace_res.recovered_hops_count == 1
 
 
@@ -500,5 +511,8 @@ def test_missing_hop_experiment_scenario() -> None:
     assert result["outcome"] == "TERMINATED_EARLY"
     assert result["origin_reached"] is False
     assert result["recovered_hops_count"] < 4
+    assert result["candidate_origin_account"] == "acct:charlie"
+    assert result["candidate_origin_device"] == "dev:charlie-primary"
     assert result["recovered_origin_account"] is None
+    assert result["recovered_origin_device"] is None
     assert result["termination_reason"] == "predecessor_record_absent_missing_intermediate_evidence"

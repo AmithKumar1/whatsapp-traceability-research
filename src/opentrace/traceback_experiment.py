@@ -320,6 +320,8 @@ def run_experiment(
             recovered_hops_count=hops_completed,
             termination_reason=f"recipient_verification_failed_at_hop_{aborted_at_hop}_{abort_reason}",
             verified_hops=tuple(verified_delivery_hops),
+            candidate_origin_account=None,
+            candidate_origin_device=None,
         )
     else:
         # Final recipient files an abuse complaint with the server
@@ -355,15 +357,15 @@ def run_experiment(
         experiment_termination_reason = trace_res.termination_reason
     elif "predecessor_record_absent" in trace_res.termination_reason:
         if (
-            trace_res.recovered_origin_account == ground_truth_origin.account_id
+            trace_res.candidate_origin_account == ground_truth_origin.account_id
             and trace_res.recovered_hops_count == hops
         ):
             # In controlled evaluation, the unverified candidate matches known ground truth
             experiment_outcome = "SUCCESS"
             experiment_origin_reached = True
             experiment_termination_reason = "predecessor_record_absent_candidate_origin_verified_by_ground_truth"
-            recovered_origin_account = trace_res.recovered_origin_account
-            recovered_origin_device = trace_res.recovered_origin_device
+            recovered_origin_account = trace_res.candidate_origin_account
+            recovered_origin_device = trace_res.candidate_origin_device
         else:
             # Predecessor record was absent at an intermediate node (missing intermediate evidence)
             experiment_outcome = "TERMINATED_EARLY"
@@ -374,8 +376,8 @@ def run_experiment(
         experiment_origin_reached = trace_res.origin_reached
         experiment_termination_reason = trace_res.termination_reason
         if experiment_origin_reached:
-            recovered_origin_account = trace_res.recovered_origin_account
-            recovered_origin_device = trace_res.recovered_origin_device
+            recovered_origin_account = trace_res.candidate_origin_account
+            recovered_origin_device = trace_res.candidate_origin_device
 
     # 5. Dynamic security property evaluations (distinguishing paper proof vs. observation)
     if experiment_origin_reached:
@@ -482,6 +484,8 @@ def run_experiment(
         "traceback_result": {
             "outcome": experiment_outcome,
             "origin_reached": experiment_origin_reached,
+            "candidate_origin_account": trace_res.candidate_origin_account,
+            "candidate_origin_device": trace_res.candidate_origin_device,
             "recovered_origin_account": recovered_origin_account,
             "recovered_origin_device": recovered_origin_device,
             "recovered_hops_count": trace_res.recovered_hops_count,
@@ -560,9 +564,11 @@ def experiment_markdown(report: Dict[str, Any]) -> str:
         "## 2. Traceback Execution Outcome",
         "",
         f"- **Outcome:** `{result['outcome']}`",
-        f"- **Origin Reached:** `{'Yes' if result['origin_reached'] else 'No'}`",
-        f"- **Recovered Origin Account:** `{result['recovered_origin_account'] or 'None'}`",
-        f"- **Recovered Origin Device:** `{result['recovered_origin_device'] or 'None'}`",
+        f"- **Origin Reached (Ground-Truth Verified):** `{'Yes' if result['origin_reached'] else 'No'}`",
+        f"- **Candidate Origin Account:** `{result['candidate_origin_account'] or 'None'}`",
+        f"- **Candidate Origin Device:** `{result['candidate_origin_device'] or 'None'}`",
+        f"- **Recovered Origin Account (Ground-Truth Certified):** `{result['recovered_origin_account'] or 'None'}`",
+        f"- **Recovered Origin Device (Ground-Truth Certified):** `{result['recovered_origin_device'] or 'None'}`",
         f"- **Hops Recovered / Accepted:** {result['recovered_hops_count']} / {params['configured_hops']}",
         f"- **Termination Reason:** `{result['termination_reason']}`",
         "",

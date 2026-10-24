@@ -247,6 +247,8 @@ def main() -> None:
                 "scenario": report["scenario"],
                 "outcome": report["traceback_result"]["outcome"],
                 "origin_reached": report["traceback_result"]["origin_reached"],
+                "candidate_origin_account": report["traceback_result"]["candidate_origin_account"],
+                "candidate_origin_device": report["traceback_result"]["candidate_origin_device"],
                 "recovered_origin_account": report["traceback_result"]["recovered_origin_account"],
                 "recovered_origin_device": report["traceback_result"]["recovered_origin_device"],
                 "recovered_hops_count": report["traceback_result"]["recovered_hops_count"],

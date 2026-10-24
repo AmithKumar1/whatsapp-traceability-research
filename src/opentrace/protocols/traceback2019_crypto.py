@@ -273,6 +273,8 @@ class TracebackExecutionResult:
     recovered_hops_count: int
     termination_reason: str
     verified_hops: Tuple[VerifiedHop, ...]
+    candidate_origin_account: Optional[str] = None
+    candidate_origin_device: Optional[str] = None
 
 
 def rec_msg(
@@ -554,11 +556,13 @@ class CryptographicTracebackServer:
         return TracebackExecutionResult(
             outcome=outcome,
             origin_reached=origin_reached,
-            recovered_origin_account=origin_account,
-            recovered_origin_device=origin_device,
+            recovered_origin_account=origin_account if origin_reached else None,
+            recovered_origin_device=origin_device if origin_reached else None,
             recovered_hops_count=len(verified_hops),
             termination_reason=termination_reason,
             verified_hops=tuple(verified_hops),
+            candidate_origin_account=origin_account,
+            candidate_origin_device=origin_device,
         )
 
 

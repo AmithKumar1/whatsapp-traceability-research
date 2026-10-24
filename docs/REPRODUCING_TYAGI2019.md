@@ -39,7 +39,7 @@ As an optional extension beyond the paper's symmetric design, senders may attach
 - **Account Identifier (`acct:*`):** Platform user handle in the messaging network.
 - **Device Identifier (`dev:*`) & Public Key:** Endpoint cryptographic credentials.
 - **Human Operator:** Cryptographic verification establishes only key possession by a device credential; it does **not** prove who physically typed the message, held the handset, or authorized transmission.
-- **Absence of Phantom Edges:** If a forwarding record is missing or expired, the protocol halts at the break and emits `missing_forwarding_record_in_server_state`. It strictly refrains from manufacturing speculative forwarding links.
+- **Absence of Phantom Edges & Candidate Reporting:** If an intermediate record is pruned or expired, the protocol halts at the break and reports an unverified candidate origin in `candidate_origin_account` (`predecessor_record_absent_candidate_origin_unverified`). It strictly refrains from manufacturing speculative forwarding links, and reserves `recovered_origin_account` exclusively for candidates certified by ground truth.
 
 ---
 
