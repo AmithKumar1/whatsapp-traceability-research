@@ -38,7 +38,7 @@ There is no single "traceability algorithm"—different academic papers propose 
 
 | Protocol Family | Capability & Scope | Research Reference | Adapter Status |
 | :--- | :--- | :--- | :--- |
-| 🌲 **Path / Tree Traceback** | Discloses complete message paths or branching trees upon recipient complaint | Tyagi, Miers & Ristenpart (*CCS 2019*) | Synthetic tree & path adapter |
+| 🌲 **Path / Tree Traceback** | Discloses complete message paths or branching trees upon recipient complaint | Tyagi, Miers & Ristenpart (*CCS 2019*) | **Cryptographic reproduction** (HMAC-SHA256, AES-CTR, Ed25519) + synthetic tree adapter |
 | 🎯 **Complaint-Enabled Tracking** | Identifies original sender while limiting intermediate recipient disclosure | Peale, Eskandarian & Boneh (*CCS 2021*) | Synthetic source-only adapter |
 | ⏳ **Hop Tracking Signatures (HTS)** | Traces originators after long forwarding paths with configurable anonymity thresholds | Branco et al. (*ePrint 2025/1052*) | Synthetic threshold model |
 | 🏛️ **Minimal-Trust Tracing** | Distributes tracing power across platform, regulator, moderators, and recipients | Wang et al. (*NDSS 2026*) | Synthetic policy-gate model |
@@ -133,7 +133,20 @@ e2ee-traceability merkle-verify --proof ./artifacts/merkle-proof.json --entry-te
 python benchmarks/benchmark_merkle.py --sizes 10 100 1000 --repeats 5 --out ./artifacts/merkle-benchmark.json
 ```
 
-### 5. Run tests
+### 5. Cryptographic traceback reproduction (Tyagi et al. CCS 2019)
+
+`ash
+# Execute offline cryptographic experiment (4 hops, HMAC-SHA256 addresses, AES-CTR pointers, Ed25519 signatures)
+e2ee-traceability traceback-reproduction --hops 4 --out ./artifacts/exp-tyagi2019.json --markdown ./artifacts/exp-tyagi2019.md
+
+# Evaluate adversarial scenarios (signature forgery rejection, missing-hop broken-chain detection)
+e2ee-traceability traceback-reproduction --hops 4 --scenario forged_signature --adversarial-hop 2
+e2ee-traceability traceback-reproduction --hops 4 --scenario missing_hop --adversarial-hop 2
+`
+
+For complete cryptographic proofs, claim-to-test mapping, and security definitions, see [docs/REPRODUCING_TYAGI2019.md](docs/REPRODUCING_TYAGI2019.md).
+
+### 6. Run tests
 
 ```bash
 pytest
@@ -218,12 +231,14 @@ Sample outputs are available in [`examples/protocol-comparison-sample-v0.5.2.jso
 ```text
 ├── docs/                      # Architectural specifications and threat models
 │   ├── MASTER_SPEC.md         # Comprehensive system specification
+│   ├── REPRODUCING_TYAGI2019.md # Cryptographic reproduction and security definitions
 │   ├── RESEARCH_REVIEW.md     # Analysis of CCS 2019, CCS 2021, HTS 2025, NDSS 2026
 │   ├── THREAT_MODEL.md        # Adversarial assumptions and boundaries
 │   ├── PROTOCOL_COMPARISON.md # Benchmark comparison methodology
 │   └── ROADMAP.md             # Implementation milestones (P0 to P5)
 ├── schemas/                   # Draft 2020-12 JSON Schemas for all formats
 │   ├── case-manifest.schema.json
+│   ├── traceback-experiment.schema.json
 │   ├── authorization-request.schema.json
 │   ├── protocol-comparison.schema.json
 │   └── merkle-inclusion-proof.schema.json

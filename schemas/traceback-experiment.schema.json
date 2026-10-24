@@ -1,0 +1,284 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AmithKumar1/whatsapp-traceability-research/schemas/traceback-experiment.schema.json",
+  "title": "TracebackExperimentReport",
+  "description": "Output schema for the faithful cryptographic reproduction of Tyagi et al. (CCS 2019) traceback experiment.",
+  "type": "object",
+  "required": [
+    "schema",
+    "protocol",
+    "reference_paper",
+    "experiment_id",
+    "timestamp",
+    "scenario",
+    "parameters",
+    "epistemic_notice",
+    "participants",
+    "traceback_result",
+    "measurements",
+    "security_properties_evaluated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "opentrace.traceback-experiment.v1"
+    },
+    "protocol": {
+      "type": "string",
+      "const": "tyagi2019-path-traceback-crypto"
+    },
+    "reference_paper": {
+      "type": "string"
+    },
+    "experiment_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scenario": {
+      "type": "string",
+      "enum": [
+        "valid_linear_path",
+        "tampered_content",
+        "forged_signature",
+        "missing_hop",
+        "cyclic_forwarding"
+      ]
+    },
+    "parameters": {
+      "type": "object",
+      "required": [
+        "configured_hops",
+        "message_bytes_len",
+        "message_sha256",
+        "pointer_size_bytes",
+        "address_algorithm",
+        "signature_algorithm",
+        "cipher_algorithm"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "configured_hops": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "message_bytes_len": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "message_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pointer_size_bytes": {
+          "type": "integer",
+          "minimum": 16
+        },
+        "address_algorithm": {
+          "type": "string"
+        },
+        "signature_algorithm": {
+          "type": "string"
+        },
+        "cipher_algorithm": {
+          "type": "string"
+        }
+      }
+    },
+    "epistemic_notice": {
+      "type": "object",
+      "required": [
+        "account_vs_device_distinction",
+        "real_world_identity_limitation",
+        "no_unrecorded_history_inference"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "account_vs_device_distinction": {
+          "type": "string"
+        },
+        "real_world_identity_limitation": {
+          "type": "string"
+        },
+        "no_unrecorded_history_inference": {
+          "type": "string"
+        }
+      }
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "device_id",
+          "public_key_fingerprint",
+          "identity_claim_scope"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "public_key_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "identity_claim_scope": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "traceback_result": {
+      "type": "object",
+      "required": [
+        "outcome",
+        "origin_reached",
+        "recovered_origin_account",
+        "recovered_origin_device",
+        "recovered_hops_count",
+        "termination_reason",
+        "verified_hops"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": ["SUCCESS", "TERMINATED_EARLY", "FAILED_VERIFICATION"]
+        },
+        "origin_reached": {
+          "type": "boolean"
+        },
+        "recovered_origin_account": {
+          "type": ["string", "null"]
+        },
+        "recovered_origin_device": {
+          "type": ["string", "null"]
+        },
+        "recovered_hops_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "termination_reason": {
+          "type": "string"
+        },
+        "verified_hops": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "hop_index",
+              "sender_account",
+              "sender_device",
+              "receiver_account",
+              "receiver_device",
+              "address_hex",
+              "signature_valid",
+              "status"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "hop_index": {
+                "type": "integer"
+              },
+              "sender_account": {
+                "type": "string"
+              },
+              "sender_device": {
+                "type": "string"
+              },
+              "receiver_account": {
+                "type": "string"
+              },
+              "receiver_device": {
+                "type": "string"
+              },
+              "address_hex": {
+                "type": "string"
+              },
+              "signature_valid": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "measurements": {
+      "type": "object",
+      "required": [
+        "setup_time_ns",
+        "forwarding_total_time_ns",
+        "traceback_time_ns",
+        "per_hop_tag_bytes",
+        "server_table_entries",
+        "server_table_bytes_approx"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "setup_time_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "forwarding_total_time_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "traceback_time_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "per_hop_tag_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "server_table_entries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "server_table_bytes_approx": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "security_properties_evaluated": {
+      "type": "object",
+      "required": [
+        "path_soundness",
+        "framing_resistance",
+        "wrong_message_termination",
+        "confidentiality_unreported",
+        "absence_of_phantom_edges"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path_soundness": {
+          "type": "string"
+        },
+        "framing_resistance": {
+          "type": "string"
+        },
+        "wrong_message_termination": {
+          "type": "string"
+        },
+        "confidentiality_unreported": {
+          "type": "string"
+        },
+        "absence_of_phantom_edges": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

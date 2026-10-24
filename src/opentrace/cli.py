@@ -91,6 +91,14 @@ def main() -> None:
     entry_group.add_argument("--entry-text", help="exact UTF-8 text bytes of the Merkle leaf")
     entry_group.add_argument("--entry-file", type=Path, help="file whose exact bytes are the Merkle leaf")
 
+    tb_repro = sub.add_parser("traceback-reproduction", help="run the Tyagi et al. (CCS 2019) cryptographic path traceback reproduction experiment")
+    tb_repro.add_argument("--hops", type=int, default=4, help="number of forwarding hops (1-50)")
+    tb_repro.add_argument("--message", type=str, default="Synthetic viral message for Tyagi2019 reproduction", help="message content to trace")
+    tb_repro.add_argument("--scenario", type=str, choices=["valid_linear_path", "tampered_content", "forged_signature", "missing_hop", "cyclic_forwarding"], default="valid_linear_path", help="experiment scenario")
+    tb_repro.add_argument("--adversarial-hop", type=int, default=2, help="1-based index where adversarial fault occurs")
+    tb_repro.add_argument("--out", type=Path, default=None, help="optional JSON report output path")
+    tb_repro.add_argument("--markdown", type=Path, default=None, help="optional Markdown summary output path")
+
     args = parser.parse_args()
     try:
         if args.command == "benchmark":
@@ -216,6 +224,33 @@ def main() -> None:
                 args.out.parent.mkdir(parents=True, exist_ok=True)
                 args.out.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
             _print_json(result)
+        elif args.command == "traceback-reproduction":
+            from .traceback_experiment import run_experiment, experiment_markdown
+            msg_bytes = args.message.encode("utf-8")
+            report = run_experiment(
+                hops=args.hops,
+                message=msg_bytes,
+                scenario=args.scenario,
+                adversarial_hop=args.adversarial_hop,
+            )
+            if args.out is not None:
+                args.out.parent.mkdir(parents=True, exist_ok=True)
+                args.out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+            if args.markdown is not None:
+                args.markdown.parent.mkdir(parents=True, exist_ok=True)
+                args.markdown.write_text(experiment_markdown(report), encoding="utf-8")
+            _print_json({
+                "schema": report["schema"],
+                "protocol": report["protocol"],
+                "scenario": report["scenario"],
+                "outcome": report["traceback_result"]["outcome"],
+                "origin_reached": report["traceback_result"]["origin_reached"],
+                "recovered_origin_account": report["traceback_result"]["recovered_origin_account"],
+                "recovered_origin_device": report["traceback_result"]["recovered_origin_device"],
+                "recovered_hops_count": report["traceback_result"]["recovered_hops_count"],
+                "termination_reason": report["traceback_result"]["termination_reason"],
+                "measurements": report["measurements"],
+            })
         elif args.command == "merkle-verify":
             proof = load_json(args.proof)
             if args.entry_text is not None:
