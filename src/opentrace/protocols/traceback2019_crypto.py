@@ -283,12 +283,17 @@ def rec_msg(
     if envelope.signature is not None:
         if envelope.sender_pubkey_raw is None:
             raise RecMsgVerificationError("RecMsg signature present but missing sender public key")
-        if registry is not None:
-            if not registry.is_registered(envelope.sender_account, envelope.sender_device, envelope.sender_pubkey_raw):
-                raise RecMsgVerificationError(
-                    f"RecMsg rejected self-asserted sender public key: not registered in DeviceRegistry for "
-                    f"{envelope.sender_account}/{envelope.sender_device}"
-                )
+        # Fail closed: A trusted DeviceRegistry is strictly REQUIRED to authenticate an identity claim via signature
+        if registry is None:
+            raise RecMsgVerificationError(
+                "Identity verification failed closed: DeviceRegistry is required to authenticate public-key claims; "
+                "self-asserted public keys cannot authenticate sender identity."
+            )
+        if not registry.is_registered(envelope.sender_account, envelope.sender_device, envelope.sender_pubkey_raw):
+            raise RecMsgVerificationError(
+                f"Identity verification failed closed: sender public key is not registered in DeviceRegistry for "
+                f"{envelope.sender_account}/{envelope.sender_device}."
+            )
         message_digest = hashlib.sha256(envelope.message).digest()
         payload = _compute_extension_payload(
             mid=envelope.mid,
@@ -415,25 +420,40 @@ class CryptographicTracebackServer:
                 if record.sender_pubkey_raw is None:
                     termination_reason = "missing_sender_public_key_in_record"
                     break
-                if registry is not None:
-                    # Enforce registry check: reject self-asserted keys
-                    if not registry.is_registered(
-                        record.sender_account, record.sender_device, record.sender_pubkey_raw
-                    ):
-                        verified_hops.append(
-                            VerifiedHop(
-                                hop_index=hop_idx + 1,
-                                sender_account=record.sender_account,
-                                sender_device=record.sender_device,
-                                receiver_account=record.receiver_account,
-                                receiver_device=record.receiver_device,
-                                address_hex=mid.hex(),
-                                signature_valid=False,
-                                status="unregistered_self_asserted_key_rejected",
-                            )
+                # Fail closed: A trusted DeviceRegistry is required to verify public-key identity claims
+                if registry is None:
+                    verified_hops.append(
+                        VerifiedHop(
+                            hop_index=hop_idx + 1,
+                            sender_account=record.sender_account,
+                            sender_device=record.sender_device,
+                            receiver_account=record.receiver_account,
+                            receiver_device=record.receiver_device,
+                            address_hex=mid.hex(),
+                            signature_valid=False,
+                            status="missing_trusted_registry_identity_unverified",
                         )
-                        termination_reason = "unregistered_self_asserted_key_rejected"
-                        break
+                    )
+                    termination_reason = "missing_trusted_registry_fail_closed"
+                    break
+
+                if not registry.is_registered(
+                    record.sender_account, record.sender_device, record.sender_pubkey_raw
+                ):
+                    verified_hops.append(
+                        VerifiedHop(
+                            hop_index=hop_idx + 1,
+                            sender_account=record.sender_account,
+                            sender_device=record.sender_device,
+                            receiver_account=record.receiver_account,
+                            receiver_device=record.receiver_device,
+                            address_hex=mid.hex(),
+                            signature_valid=False,
+                            status="unregistered_self_asserted_key_rejected",
+                        )
+                    )
+                    termination_reason = "unregistered_self_asserted_key_rejected"
+                    break
 
                 expected_payload = _compute_extension_payload(
                     mid=mid,
@@ -490,7 +510,11 @@ class CryptographicTracebackServer:
             termination_reason = "max_trace_depth_exceeded"
 
         outcome = "SUCCESS" if origin_reached else (
-            "FAILED_VERIFICATION" if "signature" in termination_reason or "unregistered" in termination_reason
+            "FAILED_VERIFICATION" if (
+                "signature" in termination_reason
+                or "unregistered" in termination_reason
+                or "registry" in termination_reason
+            )
             else "TERMINATED_EARLY"
         )
 
@@ -512,7 +536,7 @@ def originate_message(
     receiver_device: str,
     message: bytes,
     fixed_tracing_key: Optional[bytes] = None,
-    attach_extension_signature: bool = True,
+    attach_extension_signature: bool = False,
 ) -> Tuple[MessageEnvelope, ReceivedMessageState, CryptographicTraceTag]:
     """Originate a fresh message.
 
@@ -584,7 +608,7 @@ def forward_message(
     receiver_device: str,
     received_state: ReceivedMessageState,
     fixed_next_tracing_key: Optional[bytes] = None,
-    attach_extension_signature: bool = True,
+    attach_extension_signature: bool = False,
     adversarial_corrupt_signature: bool = False,
     adversarial_spoofed_sender: Optional[DeviceIdentity] = None,
 ) -> Tuple[MessageEnvelope, ReceivedMessageState, CryptographicTraceTag]:

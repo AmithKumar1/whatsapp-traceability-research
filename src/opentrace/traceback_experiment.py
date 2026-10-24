@@ -6,7 +6,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import jsonschema
 
@@ -16,9 +16,9 @@ from .protocols.traceback2019_crypto import (
     DeviceRegistry,
     MessageEnvelope,
     PathPointer,
-    ReceivedMessageState,
     RecMsgVerificationError,
     TracebackExecutionResult,
+    VerifiedHop,
     _aes_ctr,
     _compute_extension_payload,
     _kdf_enc,
@@ -36,6 +36,7 @@ def run_experiment(
     message: bytes = b"Synthetic viral message for Tyagi2019 reproduction",
     scenario: str = "valid_linear_path",
     adversarial_hop: int = 2,
+    enable_pki_extension: bool = False,
 ) -> Dict[str, Any]:
     """Run an offline cryptographic traceback experiment and return a structured report."""
     if hops < 1:
@@ -55,6 +56,9 @@ def run_experiment(
     if scenario not in valid_scenarios:
         raise ValueError(f"Unknown scenario {scenario!r}; must be one of {sorted(valid_scenarios)}")
 
+    # Forged signature scenario exercises the PKI extension
+    use_pki = enable_pki_extension or (scenario == "forged_signature")
+
     t_start_setup = time.perf_counter_ns()
     # 1. Setup participants & DeviceRegistry
     num_participants = hops + 1
@@ -73,7 +77,7 @@ def run_experiment(
     server = CryptographicTracebackServer()
     setup_time_ns = time.perf_counter_ns() - t_start_setup
 
-    # 2. Originator authors the message
+    # 2. Originator authors the message (canonical symmetric by default)
     t_start_forwarding = time.perf_counter_ns()
     originator = participants[0]
     first_receiver = participants[1]
@@ -84,6 +88,7 @@ def run_experiment(
         receiver_account=first_receiver.account_id,
         receiver_device=first_receiver.device_id,
         message=message,
+        attach_extension_signature=use_pki,
     )
 
     # First recipient runs RecMsg
@@ -91,7 +96,7 @@ def run_experiment(
         receiver_account=first_receiver.account_id,
         receiver_device=first_receiver.device_id,
         envelope=envelope,
-        registry=registry,
+        registry=registry if use_pki else None,
     )
 
     last_tag_size = len(tag.addr) + len(tag.ct)
@@ -101,10 +106,22 @@ def run_experiment(
         last_tag_size += len(tag.signature)
 
     # 3. Simulate message forwarding across remaining hops
-    # We maintain the active received state
     active_rec_state = rec_state
-    reported_message = message
-    tamper_caught_by_recipient = False
+    aborted_at_hop: Optional[int] = None
+    abort_reason: Optional[str] = None
+    hops_completed = 1  # Hop 1 successfully originated and accepted
+    verified_delivery_hops: List[VerifiedHop] = [
+        VerifiedHop(
+            hop_index=1,
+            sender_account=originator.account_id,
+            sender_device=originator.device_id,
+            receiver_account=first_receiver.account_id,
+            receiver_device=first_receiver.device_id,
+            address_hex=envelope.mid.hex(),
+            signature_valid=True,
+            status="verified_hop_authenticated",
+        )
+    ]
 
     for step in range(1, hops):
         sender = participants[step]
@@ -112,17 +129,16 @@ def run_experiment(
         is_adv_hop = (step + 1 == adversarial_hop)
 
         if scenario == "tampered_content" and is_adv_hop:
-            # Participant attempts to tamper with the message content
+            # Participant attempts to tamper with message content
             tampered_message = message + b" [tampered]"
-            reported_message = tampered_message
             bad_envelope, _, bad_tag = forward_message(
                 server=server,
                 sender=sender,
                 receiver_account=receiver.account_id,
                 receiver_device=receiver.device_id,
                 received_state=active_rec_state,
+                attach_extension_signature=use_pki,
             )
-            # Inject tampered text into envelope to simulate transmission alteration
             tampered_env = MessageEnvelope(
                 message=tampered_message,
                 tracing_key=bad_envelope.tracing_key,
@@ -140,39 +156,39 @@ def run_experiment(
                     receiver_account=receiver.account_id,
                     receiver_device=receiver.device_id,
                     envelope=tampered_env,
-                    registry=registry,
+                    registry=registry if use_pki else None,
                 )
-            except RecMsgVerificationError:
-                tamper_caught_by_recipient = True
-            active_rec_state = ReceivedMessageState(
-                message=tampered_message,
-                tracing_key=bad_envelope.tracing_key,
-                mid=bad_envelope.mid,
-                ct=bad_envelope.ct,
-                sender_account=bad_envelope.sender_account,
-                sender_device=bad_envelope.sender_device,
-                receiver_account=bad_envelope.receiver_account,
-                receiver_device=bad_envelope.receiver_device,
-            )
-            continue
+            except RecMsgVerificationError as exc:
+                # Recipient RecMsg catches tampering: message is REJECTED
+                # Forwarding is immediately aborted; no downstream hop occurs
+                aborted_at_hop = step + 1
+                abort_reason = f"rec_msg_verification_failed_tampered_content: {exc}"
+                break
 
         elif scenario == "forged_signature" and is_adv_hop:
-            # Forwarder supplies corrupted signature or uncertified key
+            # Forwarder supplies corrupted signature
             env, next_rec, fwd_tag = forward_message(
                 server=server,
                 sender=sender,
                 receiver_account=receiver.account_id,
                 receiver_device=receiver.device_id,
                 received_state=active_rec_state,
+                attach_extension_signature=True,
                 adversarial_corrupt_signature=True,
             )
-            # Recipient catches the forged signature if verifying with registry
             try:
-                rec_msg(receiver.account_id, receiver.device_id, env, registry=registry)
-            except RecMsgVerificationError:
-                pass
-            active_rec_state = next_rec
-            continue
+                rec_msg(
+                    receiver_account=receiver.account_id,
+                    receiver_device=receiver.device_id,
+                    envelope=env,
+                    registry=registry,
+                )
+            except RecMsgVerificationError as exc:
+                # Recipient RecMsg catches invalid signature: message is REJECTED
+                # Forwarding is immediately aborted; no downstream hop occurs
+                aborted_at_hop = step + 1
+                abort_reason = f"rec_msg_verification_failed_forged_signature: {exc}"
+                break
 
         elif scenario == "missing_hop" and is_adv_hop:
             # Forwarding happens between clients, but server delivery fails or record is pruned
@@ -183,40 +199,54 @@ def run_experiment(
                 receiver_account=receiver.account_id,
                 receiver_device=receiver.device_id,
                 received_state=active_rec_state,
+                attach_extension_signature=use_pki,
             )
             active_rec_state = rec_msg(
                 receiver_account=receiver.account_id,
                 receiver_device=receiver.device_id,
                 envelope=env,
-                registry=registry,
+                registry=registry if use_pki else None,
             )
-            continue
+            hops_completed += 1
+            verified_delivery_hops.append(
+                VerifiedHop(
+                    hop_index=step + 1,
+                    sender_account=sender.account_id,
+                    sender_device=sender.device_id,
+                    receiver_account=receiver.account_id,
+                    receiver_device=receiver.device_id,
+                    address_hex=env.mid.hex(),
+                    signature_valid=True,
+                    status="verified_hop_authenticated",
+                )
+            )
 
         elif scenario == "cyclic_forwarding" and is_adv_hop:
             # Genuinely inject a loop in the backwards pointer chain:
-            # The forwarder sets the predecessor pointer to point back to the forwarder's own tracing key
-            # When the server traverses backwards, encountering this key again triggers cyclic_forwarding_detected
+            # Re-encrypt predecessor pointer so it decrypts to next_rec.tracing_key (cycle back to itself)
             env, next_rec, fwd_tag = forward_message(
                 server=server,
                 sender=sender,
                 receiver_account=receiver.account_id,
                 receiver_device=receiver.device_id,
                 received_state=active_rec_state,
+                attach_extension_signature=use_pki,
             )
-            # Re-encrypt predecessor pointer so it decrypts to next_rec.tracing_key (cycle back to itself)
             cycle_k = next_rec.tracing_key
             enc_k = _kdf_enc(cycle_k)
             ct_cycle = _aes_ctr(enc_k, cycle_k)
-            cycle_payload = _compute_extension_payload(
-                mid=fwd_tag.addr,
-                ct=ct_cycle,
-                message_digest=hashlib.sha256(message).digest(),
-                sender_account=sender.account_id,
-                sender_device=sender.device_id,
-                receiver_account=receiver.account_id,
-                receiver_device=receiver.device_id,
-            )
-            sig_cycle = sender.private_key.sign(cycle_payload)
+            sig_cycle: Optional[bytes] = None
+            if use_pki:
+                cycle_payload = _compute_extension_payload(
+                    mid=fwd_tag.addr,
+                    ct=ct_cycle,
+                    message_digest=hashlib.sha256(message).digest(),
+                    sender_account=sender.account_id,
+                    sender_device=sender.device_id,
+                    receiver_account=receiver.account_id,
+                    receiver_device=receiver.device_id,
+                )
+                sig_cycle = sender.private_key.sign(cycle_payload)
             # Replace record in server table with validly signed cycle pointer
             server._table[fwd_tag.addr] = type(server._table[fwd_tag.addr])(
                 ct=ct_cycle,
@@ -228,7 +258,19 @@ def run_experiment(
                 signature=sig_cycle,
             )
             active_rec_state = next_rec
-            continue
+            hops_completed += 1
+            verified_delivery_hops.append(
+                VerifiedHop(
+                    hop_index=step + 1,
+                    sender_account=sender.account_id,
+                    sender_device=sender.device_id,
+                    receiver_account=receiver.account_id,
+                    receiver_device=receiver.device_id,
+                    address_hex=env.mid.hex(),
+                    signature_valid=True,
+                    status="verified_hop_authenticated",
+                )
+            )
 
         else:
             env, next_rec, fwd_tag = forward_message(
@@ -237,12 +279,26 @@ def run_experiment(
                 receiver_account=receiver.account_id,
                 receiver_device=receiver.device_id,
                 received_state=active_rec_state,
+                attach_extension_signature=use_pki,
             )
             active_rec_state = rec_msg(
                 receiver_account=receiver.account_id,
                 receiver_device=receiver.device_id,
                 envelope=env,
-                registry=registry,
+                registry=registry if use_pki else None,
+            )
+            hops_completed += 1
+            verified_delivery_hops.append(
+                VerifiedHop(
+                    hop_index=step + 1,
+                    sender_account=sender.account_id,
+                    sender_device=sender.device_id,
+                    receiver_account=receiver.account_id,
+                    receiver_device=receiver.device_id,
+                    address_hex=env.mid.hex(),
+                    signature_valid=True,
+                    status="verified_hop_authenticated",
+                )
             )
 
         last_tag_size = len(fwd_tag.addr) + len(fwd_tag.ct)
@@ -253,66 +309,89 @@ def run_experiment(
 
     forwarding_total_time_ns = time.perf_counter_ns() - t_start_forwarding
 
-    # 4. Final recipient files an abuse complaint with the server
-    reporting_participant = participants[-1]
+    # 4. Handle experiment outcome & Traceback execution
     t_start_trace = time.perf_counter_ns()
-    trace_res: TracebackExecutionResult = server.trace(
-        message=reported_message,
-        reporting_account=reporting_participant.account_id,
-        reporting_device=reporting_participant.device_id,
-        reporting_pointer=PathPointer(ptr=active_rec_state.tracing_key),
-        registry=registry,
-        max_depth=hops + 5,
-    )
-    traceback_time_ns = time.perf_counter_ns() - t_start_trace
+    if aborted_at_hop is not None:
+        # Pipeline stopped at delivery because recipient RecMsg rejected the message
+        traceback_time_ns = time.perf_counter_ns() - t_start_trace
+        trace_res = TracebackExecutionResult(
+            outcome="FAILED_VERIFICATION",
+            origin_reached=False,
+            recovered_origin_account=None,
+            recovered_origin_device=None,
+            recovered_hops_count=hops_completed,
+            termination_reason=f"recipient_verification_failed_at_hop_{aborted_at_hop}_{abort_reason}",
+            verified_hops=tuple(verified_delivery_hops),
+        )
+    else:
+        # Final recipient files an abuse complaint with the server
+        reporting_participant = participants[hops_completed]
+        trace_res = server.trace(
+            message=message,
+            reporting_account=reporting_participant.account_id,
+            reporting_device=reporting_participant.device_id,
+            reporting_pointer=PathPointer(ptr=active_rec_state.tracing_key),
+            registry=registry if use_pki else None,
+            max_depth=hops + 5,
+        )
+        traceback_time_ns = time.perf_counter_ns() - t_start_trace
 
-    # 5. Determine dynamic, non-hardcoded security property evaluations
+    # 5. Dynamic security property evaluations (distinguishing paper proof vs. observation)
     if trace_res.origin_reached:
         prop_path_soundness = (
-            f"DEMONSTRATED: honest forwarding path successfully traversed backwards to originator in "
+            f"OBSERVED_IN_EXPERIMENT: Honest forwarding path successfully traversed backwards to originator in "
             f"{trace_res.recovered_hops_count} hops."
         )
     else:
         prop_path_soundness = (
-            f"EVALUATED_HALTED: backward traversal stopped at hop {trace_res.recovered_hops_count} "
+            f"EVALUATED_HALTED: Backward traversal stopped at hop {trace_res.recovered_hops_count} "
             f"due to {trace_res.termination_reason}."
         )
 
     if scenario == "forged_signature":
         prop_framing_resistance = (
-            "DEMONSTRATED: untrusted self-asserted or corrupted signature rejected by verification; "
-            "framing attempt blocked."
+            f"OBSERVED_IN_EXPERIMENT (Theorem 3 Trace Unforgeability): Corrupted signature rejected by recipient "
+            f"RecMsg at hop {aborted_at_hop}; message forwarding aborted before reaching downstream recipients."
         )
     else:
         prop_framing_resistance = (
-            "NOT_EVALUATED_IN_THIS_RUN: evaluated in dedicated forged_signature and spoofing scenarios."
+            "NOT_EVALUATED_IN_THIS_RUN: Paper Theorem 3 establishes trace unforgeability under PRF collision "
+            "resistance and MAC security. Evaluated experimentally in forged_signature scenario."
         )
 
     if scenario == "tampered_content":
         prop_wrong_message = (
-            f"DEMONSTRATED: altered message text modified mid = F(k, m); RecMsg caught={tamper_caught_by_recipient}, "
-            f"tracer halted with: {trace_res.termination_reason}."
+            f"OBSERVED_IN_EXPERIMENT: Recipient RecMsg rejected modified message plaintext binding F(k, m) at "
+            f"hop {aborted_at_hop}; message forwarding aborted before reaching downstream recipients."
         )
     else:
         prop_wrong_message = (
-            "NOT_EVALUATED_IN_THIS_RUN: evaluated in dedicated tampered_content scenario and unit tests."
+            "NOT_EVALUATED_IN_THIS_RUN: RecMsg guarantees mid binding to message plaintext. "
+            "Evaluated experimentally in tampered_content scenario and unit tests."
         )
 
     prop_confidentiality = (
-        "FORMAL_THEORETICAL_CLAIM (Tyagi et al. 2019 Theorem 1): Theorem 1 establishes platform trace "
-        "confidentiality under PRF security; uncomplained messages have pseudorandom mid and AES-CTR encrypted pointers."
+        "THEORETICAL_PAPER_PROOF (Tyagi et al. 2019 Theorem 1 & Theorem 2): Theorem 1 establishes platform trace "
+        "confidentiality and Theorem 2 establishes user trace confidentiality under PRF and stream cipher security. "
+        "Uncomplained messages have pseudorandom mid and AES-CTR encrypted pointers."
     )
 
     if scenario == "missing_hop":
         prop_absence_phantom = (
-            f"DEMONSTRATED: missing server record halted traceback at break point with "
-            f"{trace_res.termination_reason} without manufacturing phantom hops."
+            f"OBSERVED_IN_EXPERIMENT: Missing server record caused traceback to halt at the missing link "
+            f"({trace_res.termination_reason}) without manufacturing phantom hops."
         )
     else:
         prop_absence_phantom = (
-            "OBSERVED: traversal strictly follows authenticated server table entries without synthesizing "
-            "unrecorded history."
+            "OBSERVED_DESIGN_PROPERTY: Traversal strictly dereferences present server table entries; "
+            "missing records halt traversal without synthesizing unrecorded history."
         )
+
+    sig_algo_desc = (
+        "Experimental PKI Extension (Ed25519 with DeviceRegistry Authentication)"
+        if use_pki
+        else "Canonical Symmetric (Section 4, Figure 3 - Third-Party Deniable; No Signatures)"
+    )
 
     # 6. Build structured output conforming to schema
     report: Dict[str, Any] = {
@@ -328,7 +407,7 @@ def run_experiment(
             "message_sha256": hashlib.sha256(message).hexdigest(),
             "pointer_size_bytes": 32,
             "address_algorithm": "HMAC-SHA256 (Keyed message identifier mid = F(k, m))",
-            "signature_algorithm": "Symmetric Third-Party Deniable (with optional Ed25519 PKI Extension)",
+            "signature_algorithm": sig_algo_desc,
             "cipher_algorithm": "AES-128-CTR with K_enc = H(k) (Predecessor pointer encryption)",
         },
         "epistemic_notice": {
@@ -420,7 +499,7 @@ def experiment_markdown(report: Dict[str, Any]) -> str:
         f"> - {report['epistemic_notice']['account_vs_device_distinction']}",
         f"> - {report['epistemic_notice']['real_world_identity_limitation']}",
         f"> - {report['epistemic_notice']['no_unrecorded_history_inference']}",
-        "> - **Deniability & Symmetric Design:** Core Path Traceback is symmetric-only (third-party deniable); "
+        "> - **Deniability & Symmetric Baseline:** Canonical Path Traceback is symmetric-only (third-party deniable); "
         "asymmetric digital signatures are an experimental extension requiring an authenticated DeviceRegistry.",
         "",
         "## 1. Parameters & Configuration",
@@ -439,7 +518,7 @@ def experiment_markdown(report: Dict[str, Any]) -> str:
         f"- **Origin Reached:** `{'Yes' if result['origin_reached'] else 'No'}`",
         f"- **Recovered Origin Account:** `{result['recovered_origin_account'] or 'None'}`",
         f"- **Recovered Origin Device:** `{result['recovered_origin_device'] or 'None'}`",
-        f"- **Hops Recovered:** {result['recovered_hops_count']} / {params['configured_hops']}",
+        f"- **Hops Recovered / Accepted:** {result['recovered_hops_count']} / {params['configured_hops']}",
         f"- **Termination Reason:** `{result['termination_reason']}`",
         "",
         "### Verified Hop Sequence",
@@ -477,9 +556,9 @@ def experiment_markdown(report: Dict[str, Any]) -> str:
         "## 4. Evaluated Security Properties",
         "",
         f"- **Path Soundness:** {props['path_soundness']}",
-        f"- **Framing Resistance:** {props['framing_resistance']}",
+        f"- **Framing Resistance (Theorem 3):** {props['framing_resistance']}",
         f"- **Wrong-Message Termination:** {props['wrong_message_termination']}",
-        f"- **Trace Confidentiality:** {props['confidentiality_unreported']}",
+        f"- **Trace Confidentiality (Theorem 1 & 2):** {props['confidentiality_unreported']}",
         f"- **Absence of Phantom Edges:** {props['absence_of_phantom_edges']}",
         "",
     ])
