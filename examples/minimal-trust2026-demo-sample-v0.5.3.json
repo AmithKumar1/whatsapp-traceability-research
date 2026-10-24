@@ -1,0 +1,67 @@
+{
+  "protocol": "minimal-trust-2026-synthetic",
+  "interoperable_with_reference": false,
+  "valid_synthetic_case": {
+    "protocol": "minimal-trust-2026-synthetic",
+    "trace_allowed": true,
+    "source_account": "synthetic-origin",
+    "verified_distinct_reports": 3,
+    "required_reports": 3,
+    "regulator_blocklist_match": true,
+    "moderator_approved": true,
+    "platform_release_authorized": true,
+    "failed_gates": [],
+    "disclosed_forwarders": 0,
+    "interoperable_with_reference": false
+  },
+  "innocent_control_case": {
+    "protocol": "minimal-trust-2026-synthetic",
+    "trace_allowed": false,
+    "source_account": null,
+    "verified_distinct_reports": 3,
+    "required_reports": 3,
+    "regulator_blocklist_match": false,
+    "moderator_approved": true,
+    "platform_release_authorized": true,
+    "failed_gates": [
+      "regulator_blocklist_match_missing"
+    ],
+    "disclosed_forwarders": 0,
+    "interoperable_with_reference": false
+  },
+  "single_honest_role_scenarios": [
+    {
+      "sole_honest_role": "platform",
+      "innocent_message_trace_blocked": true,
+      "failed_gates": [
+        "platform_release_not_authorized"
+      ],
+      "model_caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+    },
+    {
+      "sole_honest_role": "regulator",
+      "innocent_message_trace_blocked": true,
+      "failed_gates": [
+        "regulator_blocklist_match_missing"
+      ],
+      "model_caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+    },
+    {
+      "sole_honest_role": "moderator",
+      "innocent_message_trace_blocked": true,
+      "failed_gates": [
+        "moderator_approval_missing"
+      ],
+      "model_caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+    },
+    {
+      "sole_honest_role": "recipient",
+      "innocent_message_trace_blocked": true,
+      "failed_gates": [
+        "report_threshold_not_met"
+      ],
+      "model_caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+    }
+  ],
+  "caveat": "illustrative policy simulation; not a cryptographic or formal security guarantee"
+}

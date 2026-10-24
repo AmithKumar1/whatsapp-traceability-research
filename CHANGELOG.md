@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.3 — 2026-10-24
+
+- Added a clean-room cryptographic reproduction of the Path Traceback scheme from Tyagi, Miers, and Ristenpart (*ACM CCS 2019* / *ePrint 2019/981*), including RFC-style domain-separated PRF, KDF, and AES-CTR primitives, recipient-view confidentiality (Theorem 2), and Figure 3 missing-lookup termination.
+- Established strict epistemic separation between protocol-level unverified candidate origins (`candidate_origin_account`, `candidate_origin_device`) and ground-truth verified origins (`recovered_origin_account`, `recovered_origin_device`).
+- Implemented protocol forwarder identity binding in `forward_message()`, raising `ForwarderIdentityMismatchError` before key derivation, signing, or modifying server table state.
+- Hardened canonical serialization in `_compute_extension_payload()` with 4-byte big-endian length prefixing and explicit NUL byte rejection.
+- Added comprehensive regression and invariance test suites, including full-table snapshot equality assertions, PKI downgrade and signature-stripping protections, and known-answer tests.
+- Bumped build backend pins to `setuptools==84.2.1` and `wheel==0.48.0` in `pyproject.toml`.
+- Bumped development/test tool pins to `cryptography==50.0.2` and `pytest==9.1.1` in `requirements-dev.txt`.
+- Refreshed all current-version example reports and release documentation for v0.5.3.
+
 ## 0.5.2 — 2026-10-23
 
 - Added a strict release audit for project/version/citation consistency, structural CFF/YAML validation, JSON Schema meta-validation, current example validation, signed synthetic-bundle verification, high-confidence secret-marker scans, workflow SHA pinning, and cross-platform matrix presence. The local suite includes release-gate regression coverage, including tests for citation parsing, workflow structure, and refusal to build final artifacts before release metadata is complete.
