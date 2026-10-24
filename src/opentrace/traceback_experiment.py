@@ -143,7 +143,6 @@ def run_experiment(
                 message=tampered_message,
                 tracing_key=bad_envelope.tracing_key,
                 mid=bad_envelope.mid,
-                ct=bad_envelope.ct,
                 sender_account=bad_envelope.sender_account,
                 sender_device=bad_envelope.sender_device,
                 receiver_account=bad_envelope.receiver_account,
@@ -239,7 +238,6 @@ def run_experiment(
             if use_pki:
                 cycle_payload = _compute_extension_payload(
                     mid=fwd_tag.addr,
-                    ct=ct_cycle,
                     message_digest=hashlib.sha256(message).digest(),
                     sender_account=sender.account_id,
                     sender_device=sender.device_id,
@@ -356,7 +354,7 @@ def run_experiment(
     else:
         prop_framing_resistance = (
             "NOT_EVALUATED_IN_THIS_RUN: Paper Theorem 3 establishes trace unforgeability under PRF collision "
-            "resistance and MAC security. Evaluated experimentally in forged_signature scenario."
+            "resistance and authenticated routing. Evaluated experimentally in forged_signature scenario."
         )
 
     if scenario == "tampered_content":
@@ -372,8 +370,9 @@ def run_experiment(
 
     prop_confidentiality = (
         "THEORETICAL_PAPER_PROOF (Tyagi et al. 2019 Theorem 1 & Theorem 2): Theorem 1 establishes platform trace "
-        "confidentiality and Theorem 2 establishes user trace confidentiality under PRF and stream cipher security. "
-        "Uncomplained messages have pseudorandom mid and AES-CTR encrypted pointers."
+        "confidentiality (uncomplained messages have pseudorandom mid and AES-CTR encrypted pointers indistinguishable "
+        "from random) and Theorem 2 establishes user trace confidentiality (recipients cannot learn prior forwarding "
+        "history or previous tracing keys from their local view; predecessor ciphertexts ct remain isolated on the server)."
     )
 
     if scenario == "missing_hop":

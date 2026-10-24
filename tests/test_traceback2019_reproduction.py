@@ -196,7 +196,7 @@ def test_cyclic_forwarding_actually_exercises_loop_and_terminates() -> None:
 
 
 def test_fixed_deterministic_test_vector() -> None:
-    """Documented, fixed deterministic test vector with hardcoded cryptographic keys."""
+    """Documented, fixed deterministic test vector with hardcoded cryptographic keys and KAT outputs."""
     # Fixed 32-byte private key seeds (RFC-style test vectors)
     k_alice_sk = bytes.fromhex("1111111111111111111111111111111111111111111111111111111111111111")
     k_bob_sk = bytes.fromhex("2222222222222222222222222222222222222222222222222222222222222222")
@@ -218,13 +218,14 @@ def test_fixed_deterministic_test_vector() -> None:
         attach_extension_signature=False,  # Baseline symmetric
     )
 
-    # Compute expected deterministic values
-    expected_mid = _crprf(fixed_k0, msg)
-    expected_enc_key = _kdf_enc(fixed_k0)
-    expected_ct = _aes_ctr(expected_enc_key, bytes(32))
+    # Independently established Known-Answer Test (KAT) hexadecimal constants
+    EXPECTED_MID_HEX = "9e35b1b5fb0a7dc8f56cb8eb622affc53f2f47e7cad89db802c1c16f727b3482"
+    EXPECTED_ENC_KEY_HEX = "bc82b29e544be8de92d327c92a41d2dd"
+    EXPECTED_CT_HEX = "ebdfe9c438a26a7dd6dfcea304e8785e8a68281862836df7d3ec34a8733dd205"
 
-    assert tag.addr == expected_mid
-    assert tag.ct == expected_ct
+    assert tag.addr.hex() == EXPECTED_MID_HEX
+    assert _kdf_enc(fixed_k0).hex() == EXPECTED_ENC_KEY_HEX
+    assert tag.ct.hex() == EXPECTED_CT_HEX
     assert len(tag.addr) == 32
     assert len(tag.ct) == 32
     assert tag.signature is None
@@ -242,6 +243,60 @@ def test_fixed_deterministic_test_vector() -> None:
     assert trace_res.recovered_origin_account == "acct:test-alice"
     assert trace_res.recovered_origin_device == "dev:test-alice-01"
     assert len(trace_res.verified_hops) == 1
+
+
+def test_recipient_view_confidentiality_no_predecessor_pointer_exposure() -> None:
+    """Regression test (CCS 2019 Theorem 2 User Trace Confidentiality).
+
+    Verifies that the recipient envelope and received state do NOT contain
+    predecessor pointer ciphertexts `ct`. Predecessor pointers must remain exclusively
+    on the platform. A recipient possessing tracing key k and ct could decrypt
+    k_prev = Dec(H(k), ct), violating User Trace Confidentiality.
+    """
+    server = CryptographicTracebackServer()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    charlie = DeviceIdentity.generate("acct:charlie", "dev:charlie-01")
+
+    msg = b"Confidentiality test message"
+
+    # Alice originates to Bob
+    env_ab, rec_bob, tag_ab = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
+        message=msg,
+    )
+    rec_bob_verified = rec_msg(bob.account_id, bob.device_id, env_ab)
+
+    # Bob forwards to Charlie
+    env_bc, rec_charlie, tag_bc = forward_message(
+        server=server,
+        sender=bob,
+        receiver_account=charlie.account_id,
+        receiver_device=charlie.device_id,
+        received_state=rec_bob_verified,
+    )
+    rec_charlie_verified = rec_msg(charlie.account_id, charlie.device_id, env_bc)
+
+    # 1. Structural check: neither MessageEnvelope nor ReceivedMessageState expose ct
+    assert not hasattr(env_bc, "ct")
+    assert not hasattr(rec_charlie_verified, "ct")
+    assert not hasattr(env_ab, "ct")
+    assert not hasattr(rec_bob_verified, "ct")
+
+    # 2. Server stores the predecessor ciphertext, not the recipient
+    server_record = server.get_record(env_bc.mid)
+    assert server_record is not None
+    assert server_record.ct == tag_bc.ct
+
+    # 3. Confidentiality invariant: Charlie possesses k_bc, but has no access to tag_bc.ct
+    # If Charlie only inspects his local view, he cannot decrypt Bob's predecessor tracing key
+    charlie_k = rec_charlie_verified.tracing_key
+    charlie_derived_enc_key = _kdf_enc(charlie_k)
+    recovered_alice_k = _aes_ctr(charlie_derived_enc_key, server_record.ct)
+    assert recovered_alice_k == rec_bob_verified.tracing_key
 
 
 def test_theorem_mapping_and_epistemic_validation() -> None:
