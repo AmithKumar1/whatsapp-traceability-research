@@ -1,74 +1,80 @@
 # Reproducing Tyagi et al. (CCS 2019): Path Traceback Cryptographic Reproduction
 
-This document provides the specification, security definitions, implementation mapping, and experimental results for the faithful, clean-room cryptographic reproduction of the Path Traceback scheme introduced in:
+This document specifies the cryptographic design, security theorems, implementation mapping, recipient-side verification lifecycle, and experimental results for the clean-room cryptographic reproduction of the Path Traceback construction introduced in:
 
 > **Reference:** Nirvan Tyagi, Ian Miers, and Thomas Ristenpart.  
 > *"Traceback for End-to-End Encrypted Messaging."*  
-> **ACM Conference on Computer and Communications Security (CCS 2019)** / **IACR Cryptology ePrint Archive Report 2019/981**.
+> **ACM Conference on Computer and Communications Security (CCS 2019)** / **IACR Cryptology ePrint Archive Report 2019/981**.  
+> URL: https://eprint.iacr.org/2019/981.pdf
 
 ---
 
-## 1. Background & Scope
+## 1. Background, Symmetric Design & Third-Party Deniability
 
 Tyagi et al. designed cryptographic traceback schemes allowing a messaging platform or moderator, upon receiving an authenticated user complaint containing a forwarded message and cryptographic tag, to trace the path backwards hop-by-hop to the origin sender—without allowing the platform to decrypt message contents or trace uncomplained messages.
 
-### Epistemic Boundary & Identity Disambiguation
+### 1.1 The Published Construction: Symmetric Cryptography & Deniability
+In Section 4 and Figure 3 of the paper, the Path Traceback scheme is designed using **symmetric cryptographic techniques**:
+- Each hop uses a fresh random symmetric **tracing key** $k \in \{0, 1\}^{256}$.
+- The message is tagged with a keyed message identifier $\text{mid} = F(k, m)$ computed via a collision-resistant pseudorandom function (CR-PRF).
+- A symmetric encryption key $K_{\text{enc}} = H(k)$ is derived using a key derivation function.
+- The predecessor tracing key $k_{\text{prev}}$ is encrypted as an encrypted pointer $c_{\text{ptr}} = \text{AES-CTR}(K_{\text{enc}}, k_{\text{prev}})$.
+- For the origin message, $k_{\text{prev}} = \text{ORIGIN\_KEY} = 0^{256}$.
+- **Third-Party Deniability:** Because all cryptographic material is symmetric, both sender and receiver possess $k$ and $\text{mid}$. No non-repudiable asymmetric digital signatures are created that could prove authorship to an external third party or court. Accountability is internal to the platform via authenticated transmission sessions.
 
-> [!IMPORTANT]
-> **Identity Disambiguation in Cryptographic Forensics**
-> - **Account Identifier (`acct:*`):** Represents the platform-registered user identity in the messaging network.
-> - **Device Identifier (`dev:*`) & Public Key:** Represents an authenticated cryptographic endpoint credential (Ed25519 signing keypair).
-> - **Human Operator:** Cryptographic signature verification proves solely that the trace tag was authored using the private key corresponding to the device public key. It **does not** prove who physically typed the message, held the handset, or authorized transmission.
-> - **No Phantom Edges:** If a forwarding record is missing or expired, the protocol halts at the break and emits `missing_pointer_address`. It strictly refrains from manufacturing speculative forwarding links.
+### 1.2 Experimental Non-Repudiation Extension (DeviceRegistry PKI)
+As an optional extension beyond the paper's symmetric design, senders may attach an Ed25519 digital signature over the tag payload. To prevent identity spoofing:
+- Verifiers **must not** accept a sender identity merely because the public key supplied alongside the record verifies a signature.
+- An authenticated `DeviceRegistry` is required to bind `(account_id, device_id)` pairs to authorized public keys. Self-asserted public keys not present in the registry are rejected.
 
----
-
-## 2. Cryptographic Construction
-
-The Path Traceback construction employs three core primitives:
-
-### 2.1 Collision-Resistant PRF / Address Generation
-- **Primitive:** HMAC-SHA256
-- **Usage:** Server lookup addresses are pseudorandomly derived from the forwarding pointer:
-  $$\text{addr} = \text{HMAC-SHA256}(K_{\text{addr}}, \text{domain\_tag} \parallel \text{pointer})$$
-- **Guarantee:** Addresses are pseudorandom and unlinkable without knowledge of the backward pointer disclosed by the recipient.
-
-### 2.2 Backward Pointer Encryption
-- **Primitive:** AES-128 in Counter Mode (CTR)
-- **Usage:** Senders encrypt the upstream address using a symmetric key derived from the message digest and pointer secret:
-  $$C_{\text{pointer}} = \text{AES-128-CTR}(K_{\text{ptr\_enc}}, \text{upstream\_addr} \parallel \text{upstream\_payload})$$
-- **Guarantee:** An intermediary or server observing stored records cannot link records across hops without decrypting the backward pointer.
-
-### 2.3 Sender Authentication & Framing Resistance
-- **Primitive:** Ed25519 Digital Signatures (RFC 8032)
-- **Usage:** To satisfy **Theorem 1 (Framing Resistance)** of Tyagi et al. 2019, each trace tag contains a domain-separated signature over:
-  $$\text{TagPayload} = \text{TAG\_V1} \parallel \text{address} \parallel \text{ciphertext} \parallel \text{SHA256}(m) \parallel \text{sender\_id} \parallel \text{receiver\_id}$$
-  $$\sigma = \text{Ed25519-Sign}(SK_{\text{sender}}, \text{TagPayload})$$
-- **Guarantee:** A corrupt recipient or platform cannot fabricate a valid trace tag attributing a message $m$ to an innocent sender.
+### 1.3 Epistemic Boundary & Identity Disambiguation
+- **Account Identifier (`acct:*`):** Platform user handle in the messaging network.
+- **Device Identifier (`dev:*`) & Public Key:** Endpoint cryptographic credentials.
+- **Human Operator:** Cryptographic verification establishes only key possession by a device credential; it does **not** prove who physically typed the message, held the handset, or authorized transmission.
+- **Absence of Phantom Edges:** If a forwarding record is missing or expired, the protocol halts at the break and emits `missing_forwarding_record_in_server_state`. It strictly refrains from manufacturing speculative forwarding links.
 
 ---
 
-## 3. Claim-to-Code Mapping & Automated Test Suite
+## 2. Recipient-Side Verification (`RecMsg`)
 
-| Security Claim / Paper Property | Formal Definition in CCS 2019 | Code Implementation | Automated Test |
+A critical component of the published protocol (Section 4, Figure 3) is the explicit **recipient-side verification algorithm (`RecMsg`)**:
+
+1. When a client receives a message envelope $(m, k, \text{mid}, c_{\text{ptr}}, \dots)$, it **must verify** the binding before accepting the message or allowing it to be forwarded:
+   $$\text{expected\_mid} = F(k, m)$$
+   $$\text{Verify: } \text{expected\_mid} \stackrel{?}{=} \text{mid}$$
+2. If $\text{expected\_mid} \neq \text{mid}$, `RecMsg` immediately raises `RecMsgVerificationError` and rejects the delivery.
+3. If the non-repudiation extension is active, `RecMsg` verifies the sender's public key against the `DeviceRegistry` and verifies the attached signature.
+4. Messages that fail `RecMsg` cannot be forwarded, preventing corrupted or manipulated tracing state from propagating downstream.
+
+---
+
+## 3. Formal Security Theorems & Claim-to-Code Mapping
+
+| Formal Property / Theorem | Paper Definition | Code Implementation | Automated Test & Verification |
 | :--- | :--- | :--- | :--- |
-| **Path Soundness** | Correct backward traversal across honest forwarding chain to origin | `CryptographicTracebackServer.traceback()` in `traceback2019_crypto.py` | `test_reproduction_multi_hop_traceback()` |
-| **Framing Resistance** | Adversary cannot forge valid trace tags under innocent sender's key (Theorem 1) | `sender_device.sign_trace_tag()` with Ed25519 | `test_framing_resistance_forged_signature()` |
-| **Wrong-Message Termination** | Trace fails if presented message digest does not match tag commitment | Payload binding check `sha256(message)` | `test_tampered_content_fails_traceback()` |
-| **Unlinked Confidentiality** | Server records are computationally indistinguishable from random without complaint | Pseudorandom HMAC address index + AES-CTR ciphertexts | `test_reproduction_crypto_determinism()` |
-| **Absence of Phantom Edges** | Missing records cause explicit termination, no speculative edges | `termination_reason = "missing_pointer_address"` | `test_missing_hop_detects_broken_chain()` |
+| **Platform Trace Confidentiality** | **CCS 2019 Theorem 1:** Uncomplained messages and forwarding paths are computationally indistinguishable from random under PRF and stream-cipher security. | Server table stores pseudorandom `mid` addresses and AES-CTR encrypted pointers. | `test_crypto_primitives_invertible_and_deterministic()` |
+| **Path Soundness** | Backward traversal across honest forwarding chain recovers origin sender and device. | `CryptographicTracebackServer.trace()` | `test_canonical_symmetric_path_traceback_reaches_origin()`, `test_valid_path_traceback_reaches_origin_across_hops()` |
+| **Recipient Binding & Wrong-Message Termination** | Recipient `RecMsg` verification binds $m$, $k$, and $\text{mid}$; altering $m$ halts traceback. | `rec_msg()` and mid verification | `test_recipient_rec_msg_lifecycle_and_tamper_rejection()`, `test_tampered_content_and_missing_hop_scenarios()` |
+| **Trace Unforgeability / Framing Resistance** | Adversary cannot frame an honest user as the originator of an unauthored message. | Authenticated routing + optional `DeviceRegistry` PKI extension | `test_adversarial_self_asserted_identity_spoofing_rejected()` |
+| **Absence of Phantom Edges** | Missing records cause immediate explicit termination, no speculative edges synthesized. | `termination_reason = "missing_forwarding_record_in_server_state"` | `test_tampered_content_and_missing_hop_scenarios()` |
+| **Cycle Detection** | Traversal terminates safely if forwarding pointers form a loop. | `visited_keys` set in `trace()` | `test_cyclic_forwarding_actually_exercises_loop_and_terminates()` |
 
 ---
 
-## 4. Upstream Comparison: `nirvantyagi/tracing` vs. This Reproduction
+## 4. Documented Deterministic Test Vector
 
-| Dimension | Upstream Reference (`nirvantyagi/tracing`) | OpenTrace Reproduction (`opentrace`) |
-| :--- | :--- | :--- |
-| **Language & Environment** | Rust / C library dependencies, network simulation scripts | Clean Python 3.10+ using `cryptography` (OpenSSL / PyCA) |
-| **Portability** | Requires native toolchains and platform-specific compilation | 100% portable offline pure-Python/C-extension wheel |
-| **Identity Separation** | Implicit socket/actor addressing | Strict separation: `Account ID` vs `Device ID` vs `Human Operator` |
-| **Forensic Auditability** | Raw text logs | JSON Schema Draft 2020-12 machine-readable reports |
-| **Adversarial Modes** | Custom unit test configurations | Dedicated scenario engine: valid, tampered, forged, missing, cyclic |
+To ensure reproducibility across independent implementations, a fixed deterministic test vector is provided with hardcoded 32-byte hexadecimal seeds:
+
+- **Message ($m$):** `b"Tyagi 2019 fixed test vector payload"`
+- **Alice Private Key Seed:** `1111111111111111111111111111111111111111111111111111111111111111`
+- **Bob Private Key Seed:** `2222222222222222222222222222222222222222222222222222222222222222`
+- **Origin Tracing Key ($k_0$):** `0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20`
+- **Origin Predecessor Key:** `0000000000000000000000000000000000000000000000000000000000000000` (32 zero bytes)
+- **Derived Message Identifier ($\text{mid}_0$):** `_crprf(k_0, m)` (32 bytes)
+- **Derived Encryption Key ($K_{\text{enc}, 0}$):** `_kdf_enc(k_0)` (16 bytes)
+- **Pointer Ciphertext ($c_{\text{ptr}, 0}$):** `_aes_ctr(K_{\text{enc}, 0}, ORIGIN_KEY)` (32 bytes)
+
+Verified in `tests/test_traceback2019_reproduction.py::test_fixed_deterministic_test_vector`.
 
 ---
 
@@ -82,39 +88,52 @@ python -m pytest tests/test_traceback2019_reproduction.py -v
 ### Run Full Test Suite & Release Audit
 ```powershell
 python -m pytest -q
+python -m ruff check .
+python -m mypy src tests
 python scripts/release_audit.py
 ```
 
 ### Execute CLI Experiment (JSON + Markdown Output)
 ```powershell
-python -m opentrace traceback-reproduction --hops 5 --out artifacts/exp_valid.json --markdown artifacts/exp_valid.md
+python -m opentrace traceback-reproduction --hops 4 --out artifacts/exp_valid.json --markdown artifacts/exp_valid.md
 ```
 
-### Test Adversarial Forgery Rejection
+### Test Adversarial Scenarios
 ```powershell
+# Forged signature / identity spoofing rejection
 python -m opentrace traceback-reproduction --hops 4 --scenario forged_signature --adversarial-hop 2
-```
 
-### Test Broken Chain Handling (No Phantom Edges)
-```powershell
+# Tampered message content rejection (RecMsg / tracer halt)
+python -m opentrace traceback-reproduction --hops 4 --scenario tampered_content --adversarial-hop 2
+
+# Broken forwarding chain (absence of phantom edges)
 python -m opentrace traceback-reproduction --hops 4 --scenario missing_hop --adversarial-hop 2
+
+# Cyclic forwarding loop detection
+python -m opentrace traceback-reproduction --hops 4 --scenario cyclic_forwarding --adversarial-hop 2
 ```
 
 ---
 
-## 6. Experimental Observations
+## 6. Experimental Observations & Synthetic Timings Caveat
 
-Running the 4-hop and 5-hop experiments yields the following reproducible measurements on standard x86-64 hardware:
+> [!NOTE]
+> **Microbenchmarks vs. Published Network Measurements**
+> The timings produced by this offline testbed measure pure local in-process microbenchmarks on synthetic hardware. They demonstrate algorithmic scaling and relative overheads, but **are not directly comparable** to the wide-area network (WAN) and simulated distributed messaging latencies reported in Tyagi et al. 2019.
 
-- **Per-Hop Tag Wire Overhead:** Exactly 144 bytes per forwarded message (16-byte address, 32-byte ciphertext, 32-byte pointer secret, 64-byte Ed25519 signature).
-- **Server Record Storage:** ~197 bytes per forwarding hop in the server index.
-- **Traceback Dereference Latency:** < 1 millisecond for 4 hops (constant-time table lookups + AES-CTR decryption).
-- **Setup Latency:** ~3-7 milliseconds (Ed25519 key generation for 5 devices).
+- **Local Traceback Latency:** < 1 millisecond for 4 hops (in-memory lookup + symmetric decryption).
+- **Per-Hop Wire Tag Overhead:** 64 bytes in purely symmetric canonical mode; 160 bytes with optional Ed25519 PKI extension.
+- **Server Record Storage:** In-memory dictionary indexed by 32-byte `mid`.
 
 ---
 
-## 7. Next Research Milestones
+## 7. Deviations, Upstream Status & Future Milestones
 
-1. **Tree-Traceback Reproduction:** Extend from linear path traceback to branching tree topologies with threshold reporting.
-2. **Commitment-Private Source Tracking:** Implement the zero-knowledge opening variant from Peeters et al. (IEEE S&P 2021).
-3. **Differential Interoperability Harness:** Implement an external test harness checking cross-implementation tag format compatibility against upstream Rust binaries where available.
+### Upstream Reference Implementation Status
+- Upstream prototype: [`nirvantyagi/tracing`](https://github.com/nirvantyagi/tracing) (Rust / C dependencies, Redis server backend).
+- **Differential Interoperability Status:** Not yet completed. Direct binary differential testing requires a native Rust nightly toolchain and a running Redis instance, which are outside the pure offline Python scope of this repository. This Python implementation is a **clean-room cryptographic reproduction** following the paper's documented algorithms.
+
+### Next Concrete Research Milestones
+1. **Tree-Traceback Cryptographic Extension:** Extend from linear path traceback to branching tree topologies.
+2. **Threshold Reporting:** Evaluate multi-complaint quorum requirements for intermediate node disclosure.
+3. **Upstream Differential Harness:** Create an automated CI container with native Rust/Redis to execute cross-language differential test vectors against `nirvantyagi/tracing`.

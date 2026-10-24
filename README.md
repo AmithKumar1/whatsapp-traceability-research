@@ -38,7 +38,7 @@ There is no single "traceability algorithm"—different academic papers propose 
 
 | Protocol Family | Capability & Scope | Research Reference | Adapter Status |
 | :--- | :--- | :--- | :--- |
-| 🌲 **Path / Tree Traceback** | Discloses complete message paths or branching trees upon recipient complaint | Tyagi, Miers & Ristenpart (*CCS 2019*) | **Cryptographic reproduction** (HMAC-SHA256, AES-CTR, Ed25519) + synthetic tree adapter |
+| 🌲 **Path / Tree Traceback** | Discloses complete message paths or branching trees upon recipient complaint | Tyagi, Miers & Ristenpart (*CCS 2019*) | **Cryptographic reproduction** (HMAC-SHA256 mid, AES-CTR pointers, RecMsg verification, optional PKI extension) + synthetic tree adapter |
 | 🎯 **Complaint-Enabled Tracking** | Identifies original sender while limiting intermediate recipient disclosure | Peale, Eskandarian & Boneh (*CCS 2021*) | Synthetic source-only adapter |
 | ⏳ **Hop Tracking Signatures (HTS)** | Traces originators after long forwarding paths with configurable anonymity thresholds | Branco et al. (*ePrint 2025/1052*) | Synthetic threshold model |
 | 🏛️ **Minimal-Trust Tracing** | Distributes tracing power across platform, regulator, moderators, and recipients | Wang et al. (*NDSS 2026*) | Synthetic policy-gate model |
@@ -135,16 +135,20 @@ python benchmarks/benchmark_merkle.py --sizes 10 100 1000 --repeats 5 --out ./ar
 
 ### 5. Cryptographic traceback reproduction (Tyagi et al. CCS 2019)
 
+Offline cryptographic experiment reproducing the symmetric Path Traceback scheme (Section 4 / Figure 3) with recipient-side RecMsg verification, loop detection, and an optional PKI-backed non-repudiation extension:
+
 `ash
-# Execute offline cryptographic experiment (4 hops, HMAC-SHA256 addresses, AES-CTR pointers, Ed25519 signatures)
+# Execute offline cryptographic experiment (4 hops, HMAC-SHA256 mid, AES-CTR pointers, RecMsg verification)
 e2ee-traceability traceback-reproduction --hops 4 --out ./artifacts/exp-tyagi2019.json --markdown ./artifacts/exp-tyagi2019.md
 
-# Evaluate adversarial scenarios (signature forgery rejection, missing-hop broken-chain detection)
+# Evaluate adversarial scenarios (tampered message, uncertified key spoofing, broken chain, forwarding cycle)
+e2ee-traceability traceback-reproduction --hops 4 --scenario tampered_content --adversarial-hop 2
 e2ee-traceability traceback-reproduction --hops 4 --scenario forged_signature --adversarial-hop 2
 e2ee-traceability traceback-reproduction --hops 4 --scenario missing_hop --adversarial-hop 2
+e2ee-traceability traceback-reproduction --hops 4 --scenario cyclic_forwarding --adversarial-hop 2
 `
 
-For complete cryptographic proofs, claim-to-test mapping, and security definitions, see [docs/REPRODUCING_TYAGI2019.md](docs/REPRODUCING_TYAGI2019.md).
+For security definitions (CCS 2019 Theorem 1 Platform Trace Confidentiality), threat models, and claim-to-code mapping, see [docs/REPRODUCING_TYAGI2019.md](docs/REPRODUCING_TYAGI2019.md).
 
 ### 6. Run tests
 
