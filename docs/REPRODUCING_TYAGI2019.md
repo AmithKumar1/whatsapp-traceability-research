@@ -31,9 +31,10 @@ In Section 4 and Figure 3 of the paper, the Path Traceback scheme is designed us
 - **Third-Party Deniability:** Because all cryptographic material is symmetric, both sender and receiver possess $k$ and $\text{mid}$. No non-repudiable asymmetric digital signatures are created that could prove authorship to an external third party or court. Accountability is internal to the platform via authenticated transmission sessions.
 
 ### 1.2 Experimental Non-Repudiation Extension (DeviceRegistry PKI)
-As an optional extension beyond the paper's symmetric design, senders may attach an Ed25519 digital signature over the tag payload. To prevent identity spoofing:
-- Verifiers **must not** accept a sender identity merely because the public key supplied alongside the record verifies a signature.
-- An authenticated `DeviceRegistry` is required to bind `(account_id, device_id)` pairs to authorized public keys. Self-asserted public keys not present in the registry are rejected.
+As an optional extension beyond the paper's symmetric design, senders may attach an Ed25519 digital signature over the tag payload. To prevent identity spoofing, downgrade attacks, and link tampering:
+- **Registry Fail-Closed:** Verifiers **must not** accept a sender identity merely because the public key supplied alongside the record verifies a signature. An authenticated `DeviceRegistry` is required to bind `(account_id, device_id)` pairs to authorized public keys. Self-asserted public keys not present in the registry are rejected.
+- **Downgrade & Signature-Stripping Protection:** When PKI mode is required (`require_signature=True`), unsigned envelopes and server records are immediately rejected (`RecMsgVerificationError` / `missing_required_signature_in_pki_mode`).
+- **Predecessor Pointer Integrity Binding:** The signature payload binds `ct_digest = H(c_ptr)` alongside `mid`, `message_digest`, and identity strings. This authenticates the predecessor pointer against platform or MITM tampering, while keeping the raw predecessor ciphertext $c_{	ext{ptr}}$ off the recipient's envelope to strictly preserve CCS 2019 Theorem 2 User Trace Confidentiality.
 
 ### 1.3 Epistemic Boundary & Identity Disambiguation
 - **Account Identifier (`acct:*`):** Platform user handle in the messaging network.
@@ -66,7 +67,10 @@ A critical component of the published protocol (Section 4, Figure 3) is the expl
 | **Path Soundness** | Backward traversal across honest forwarding chain recovers origin sender and device. | `CryptographicTracebackServer.trace()` | `test_canonical_symmetric_path_traceback_reaches_origin()`, `test_default_symmetric_mode_without_signatures()` |
 | **Recipient Binding & Wrong-Message Termination** | Recipient `RecMsg` verification binds $m$, $k$, and $\text{mid}$; altering $m$ halts traceback. | `rec_msg()` and mid verification | `test_tampered_content_aborts_forwarding_before_downstream_hops()`, `test_recipient_rec_msg_lifecycle_and_tamper_rejection()` |
 | **Absence of Phantom Edges** | Missing or pruned records cause immediate explicit termination, reporting an unverified candidate; no speculative edges synthesized. | `termination_reason = "predecessor_record_absent_candidate_origin_unverified"` | `test_missing_intermediate_record_terminates_at_intermediate_forwarder()`, `test_missing_hop_experiment_scenario()` |
-| **Cycle Detection** | Traversal terminates safely if forwarding pointers form a loop. | `visited_keys` set in `trace()` | `test_cyclic_forwarding_actually_exercises_loop_and_terminates()` |
+| **Cycle Detection** | Traversal terminates safely if forwarding pointers form a loop; resets candidate origin. | `visited_keys` set in `trace()` | `test_cyclic_forwarding_actually_exercises_loop_and_terminates()` |
+| **Duplicate Identifier Rejection** | Svr-Process rejects duplicate message identifiers `mid` to prevent key reuse anomalies. | `process_delivery() == False` raises `DuplicateMessageIdentifierError` | `test_duplicate_message_identifier_rejected()` |
+| **Predecessor Pointer Authentication** | In PKI mode, $H(c_{\text{ptr}})$ is bound into the signature to detect server-side link tampering. | `_compute_extension_payload(..., ct_digest)` | `test_tampered_predecessor_pointer_fails_signature_in_pki_mode()` |
+| **Signature Downgrade Resistance** | PKI mode requires signatures on every hop; stripped signatures fail closed. | `require_signature=True` in `rec_msg` and `trace` | `test_signature_stripping_downgrade_rejected()` |
 
 ---
 
