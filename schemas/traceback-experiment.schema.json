@@ -141,6 +141,8 @@
       "required": [
         "outcome",
         "origin_reached",
+        "candidate_origin_account",
+        "candidate_origin_device",
         "recovered_origin_account",
         "recovered_origin_device",
         "recovered_hops_count",
@@ -155,6 +157,12 @@
         },
         "origin_reached": {
           "type": "boolean"
+        },
+        "candidate_origin_account": {
+          "type": ["string", "null"]
+        },
+        "candidate_origin_device": {
+          "type": ["string", "null"]
         },
         "recovered_origin_account": {
           "type": ["string", "null"]
