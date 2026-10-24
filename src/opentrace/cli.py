@@ -96,6 +96,7 @@ def main() -> None:
     tb_repro.add_argument("--message", type=str, default="Synthetic viral message for Tyagi2019 reproduction", help="message content to trace")
     tb_repro.add_argument("--scenario", type=str, choices=["valid_linear_path", "tampered_content", "forged_signature", "missing_hop", "cyclic_forwarding"], default="valid_linear_path", help="experiment scenario")
     tb_repro.add_argument("--adversarial-hop", type=int, default=2, help="1-based index where adversarial fault occurs")
+    tb_repro.add_argument("--pki-extension", action="store_true", default=False, help="enable experimental Ed25519 PKI non-repudiation extension (default is pure symmetric)")
     tb_repro.add_argument("--out", type=Path, default=None, help="optional JSON report output path")
     tb_repro.add_argument("--markdown", type=Path, default=None, help="optional Markdown summary output path")
 
@@ -232,6 +233,7 @@ def main() -> None:
                 message=msg_bytes,
                 scenario=args.scenario,
                 adversarial_hop=args.adversarial_hop,
+                enable_pki_extension=args.pki_extension,
             )
             if args.out is not None:
                 args.out.parent.mkdir(parents=True, exist_ok=True)
