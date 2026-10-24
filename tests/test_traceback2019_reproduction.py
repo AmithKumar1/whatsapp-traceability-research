@@ -59,7 +59,7 @@ def test_default_symmetric_mode_without_signatures() -> None:
     assert result["recovered_origin_account"] == "acct:alice"
     assert result["recovered_origin_device"] == "dev:alice-primary"
     assert result["recovered_hops_count"] == 4
-    assert result["termination_reason"] == "origin_reached_successfully"
+    assert "predecessor_record_absent" in result["termination_reason"]
 
 
 def test_explicit_opt_in_to_pki_extension() -> None:
@@ -215,6 +215,7 @@ def test_fixed_deterministic_test_vector() -> None:
         receiver_device=bob.device_id,
         message=msg,
         fixed_tracing_key=fixed_k0,
+        fixed_predecessor_key=bytes(32),
         attach_extension_signature=False,  # Baseline symmetric
     )
 
@@ -243,6 +244,7 @@ def test_fixed_deterministic_test_vector() -> None:
     assert trace_res.recovered_origin_account == "acct:test-alice"
     assert trace_res.recovered_origin_device == "dev:test-alice-01"
     assert len(trace_res.verified_hops) == 1
+    assert "predecessor_record_absent" in trace_res.termination_reason
 
 
 def test_recipient_view_confidentiality_no_predecessor_pointer_exposure() -> None:
@@ -323,3 +325,145 @@ def test_theorem_mapping_and_epistemic_validation() -> None:
     assert "Local Synthetic Microbenchmarks" in md
     assert "Theorem 1 & 2" in md
     assert "Theorem 3" in md
+
+
+def test_normal_origin_termination_random_predecessor() -> None:
+    """Verifies Figure 3 normal origin termination with a random predecessor key.
+
+    In Tyagi et al. (CCS 2019) Figure 3, the originator generates a fresh random
+    predecessor key k_prev (not a fixed zero sentinel). Traceback terminates
+    because mid = F(k_prev, m) has no entry in the server table.
+    """
+    server = CryptographicTracebackServer()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    charlie = DeviceIdentity.generate("acct:charlie", "dev:charlie-01")
+
+    msg = b"Testing normal origin termination with random predecessor key"
+
+    # Alice originates with random k_0 and random k_prev_0 (default)
+    env_ab, rec_bob, tag_ab = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
+        message=msg,
+    )
+    rec_bob_verified = rec_msg(bob.account_id, bob.device_id, env_ab)
+
+    # Bob forwards to Charlie
+    env_bc, rec_charlie, tag_bc = forward_message(
+        server=server,
+        sender=bob,
+        receiver_account=charlie.account_id,
+        receiver_device=charlie.device_id,
+        received_state=rec_bob_verified,
+    )
+    rec_charlie_verified = rec_msg(charlie.account_id, charlie.device_id, env_bc)
+
+    # Charlie complains: traceback traverses Charlie <- Bob <- Alice
+    trace_res = server.trace(
+        message=msg,
+        reporting_account=charlie.account_id,
+        reporting_device=charlie.device_id,
+        reporting_pointer=PathPointer(rec_charlie_verified.tracing_key),
+        expected_origin_account=alice.account_id,
+    )
+
+    assert trace_res.outcome == "SUCCESS"
+    assert trace_res.origin_reached is True
+    assert trace_res.recovered_origin_account == "acct:alice"
+    assert trace_res.recovered_origin_device == "dev:alice-01"
+    assert trace_res.recovered_hops_count == 2
+    assert trace_res.termination_reason == "predecessor_record_absent_normal_origin_reached"
+    assert len(trace_res.verified_hops) == 2
+
+
+def test_missing_intermediate_record_terminates_at_intermediate_forwarder() -> None:
+    """Verifies that missing intermediate server records halt traceback at an intermediate forwarder.
+
+    CRITICAL EPISTEMIC INVARIANT:
+    An absent predecessor record in server state (T[mid] is None) does NOT prove the
+    true origin was reached. If intermediate records were pruned or dropped, traceback
+    halts at the intermediate forwarder and must not claim true origin was reached.
+    """
+    server = CryptographicTracebackServer()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    charlie = DeviceIdentity.generate("acct:charlie", "dev:charlie-01")
+    dave = DeviceIdentity.generate("acct:dave", "dev:dave-01")
+
+    msg = b"Testing missing intermediate record behavior"
+
+    # Alice originates to Bob (stored in server)
+    env_ab, rec_bob, tag_ab = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
+        message=msg,
+    )
+    rec_bob_verified = rec_msg(bob.account_id, bob.device_id, env_ab)
+
+    # Bob forwards to Charlie, but tag is omitted from server (simulating pruned/dropped hop)
+    dummy_server = CryptographicTracebackServer()
+    env_bc, rec_charlie, tag_bc = forward_message(
+        server=dummy_server,  # NOT added to server._table!
+        sender=bob,
+        receiver_account=charlie.account_id,
+        receiver_device=charlie.device_id,
+        received_state=rec_bob_verified,
+    )
+    rec_charlie_verified = rec_msg(charlie.account_id, charlie.device_id, env_bc)
+
+    # Charlie forwards to Dave (stored in server)
+    env_cd, rec_dave, tag_cd = forward_message(
+        server=server,
+        sender=charlie,
+        receiver_account=dave.account_id,
+        receiver_device=dave.device_id,
+        received_state=rec_charlie_verified,
+    )
+    rec_dave_verified = rec_msg(dave.account_id, dave.device_id, env_cd)
+
+    # Dave reports to server.
+    # Traceback can only recover Charlie -> Dave. The lookup for Bob's tag fails!
+    trace_res = server.trace(
+        message=msg,
+        reporting_account=dave.account_id,
+        reporting_device=dave.device_id,
+        reporting_pointer=PathPointer(rec_dave_verified.tracing_key),
+        expected_origin_account=alice.account_id,
+    )
+
+    # Traversal stopped at Charlie; it NEVER reached Alice!
+    assert trace_res.outcome == "TERMINATED_EARLY"
+    assert trace_res.origin_reached is False
+    assert trace_res.recovered_origin_account is None
+    assert trace_res.recovered_hops_count == 1
+    assert trace_res.termination_reason == "predecessor_record_absent_missing_intermediate_evidence"
+    assert trace_res.verified_hops[0].sender_account == "acct:charlie"
+
+    # Standalone traceback without expected_origin oracle:
+    # Server halts and reports the earliest available sender as candidate,
+    # but cannot prove it is the true origin.
+    standalone_res = server.trace(
+        message=msg,
+        reporting_account=dave.account_id,
+        reporting_device=dave.device_id,
+        reporting_pointer=PathPointer(rec_dave_verified.tracing_key),
+    )
+    assert standalone_res.recovered_origin_account == "acct:charlie"
+    assert standalone_res.recovered_hops_count == 1
+    assert standalone_res.termination_reason == "predecessor_record_absent_in_server_state"
+
+
+def test_missing_hop_experiment_scenario() -> None:
+    """Verifies that run_experiment correctly models missing intermediate records."""
+    report = run_experiment(hops=4, scenario="missing_hop", adversarial_hop=2)
+    result = report["traceback_result"]
+    assert result["outcome"] == "TERMINATED_EARLY"
+    assert result["origin_reached"] is False
+    assert result["recovered_hops_count"] < 4
+    assert "predecessor_record_absent" in result["termination_reason"]
+    assert "missing_intermediate" in result["termination_reason"]
