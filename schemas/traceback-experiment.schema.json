@@ -189,6 +189,7 @@
               "receiver_device",
               "address_hex",
               "signature_valid",
+              "signature_status",
               "status"
             ],
             "additionalProperties": false,
@@ -212,7 +213,11 @@
                 "type": "string"
               },
               "signature_valid": {
-                "type": "boolean"
+                "type": ["boolean", "null"]
+              },
+              "signature_status": {
+                "type": "string",
+                "enum": ["N/A", "VALID", "INVALID", "MISSING"]
               },
               "status": {
                 "type": "string"

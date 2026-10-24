@@ -91,18 +91,20 @@ def _compute_extension_payload(
     sender_device: str,
     receiver_account: str,
     receiver_device: str,
+    ct_digest: bytes = b"",
 ) -> bytes:
     """Domain-separated payload for the optional PKI-backed non-repudiation extension.
 
     CRITICAL PRIVACY INVARIANT (CCS 2019 Theorem 2 User Trace Confidentiality):
-    The encrypted predecessor pointer `ct` is NEVER included in the signed payload
-    or delivered to the recipient. The recipient verifies mid and message binding
-    without accessing platform-side predecessor pointer ciphertexts.
+    The raw encrypted predecessor pointer `ct` is NEVER delivered to the recipient.
+    Instead, ct_digest = H(ct) binds predecessor pointer integrity into the signature,
+    enabling server-side link authentication without leaking k_prev or ct to recipients.
     """
     return (
         DOMAIN_EXTENSION_SIG
         + mid
         + message_digest
+        + ct_digest
         + sender_account.encode("utf-8")
         + b"\x00"
         + sender_device.encode("utf-8")
@@ -115,6 +117,10 @@ def _compute_extension_payload(
 
 class RecMsgVerificationError(ValueError):
     """Raised when recipient-side verification (RecMsg) fails."""
+
+
+class DuplicateMessageIdentifierError(ValueError):
+    """Raised when attempting to store a message with an already existing message identifier (mid)."""
 
 
 class DeviceRegistry:
@@ -220,6 +226,7 @@ class MessageEnvelope:
     receiver_device: str
     sender_pubkey_raw: Optional[bytes] = None
     signature: Optional[bytes] = None
+    ct_digest: Optional[bytes] = None
 
 
 @dataclass(frozen=True)
@@ -259,7 +266,8 @@ class VerifiedHop:
     receiver_account: str
     receiver_device: str
     address_hex: str  # mid in hex
-    signature_valid: bool
+    signature_valid: Optional[bool]
+    signature_status: str  # 'N/A' (canonical symmetric), 'VALID', 'INVALID', 'MISSING'
     status: str
 
 
@@ -282,12 +290,14 @@ def rec_msg(
     receiver_device: str,
     envelope: MessageEnvelope,
     registry: Optional[DeviceRegistry] = None,
+    require_signature: bool = False,
 ) -> ReceivedMessageState:
     """Execute the recipient-side verification algorithm (RecMsg) from CCS 2019.
 
     Binds the message plaintext, tracing key k, and message identifier mid:
       expected_mid = F(k, m)
     Rejects modified content, wrong keys, or unauthenticated sender claims.
+    If require_signature=True, rejects unsigned envelopes to prevent downgrade/signature-stripping attacks.
     """
     if envelope.receiver_account != receiver_account or envelope.receiver_device != receiver_device:
         raise RecMsgVerificationError(
@@ -300,6 +310,12 @@ def rec_msg(
         raise RecMsgVerificationError(
             f"RecMsg binding mismatch: mid does not match F(k, m). "
             f"expected={expected_mid.hex()[:16]}..., got={envelope.mid.hex()[:16]}..."
+        )
+
+    # Downgrade / signature stripping protection: fail closed if signature required but missing
+    if require_signature and (envelope.signature is None or envelope.sender_pubkey_raw is None):
+        raise RecMsgVerificationError(
+            "Missing required digital signature: PKI mode requires an authenticated Ed25519 signature."
         )
 
     # If the optional non-repudiation extension is present, check sender signature
@@ -325,6 +341,7 @@ def rec_msg(
             sender_device=envelope.sender_device,
             receiver_account=envelope.receiver_account,
             receiver_device=envelope.receiver_device,
+            ct_digest=envelope.ct_digest if envelope.ct_digest is not None else b"",
         )
         try:
             pub = Ed25519PublicKey.from_public_bytes(envelope.sender_pubkey_raw)
@@ -391,6 +408,7 @@ class CryptographicTracebackServer:
         reporting_pointer: PathPointer,
         registry: Optional[DeviceRegistry] = None,
         max_depth: int = 100,
+        require_signature: bool = False,
     ) -> TracebackExecutionResult:
         """Execute the traceback algorithm from reporting user back to origin.
 
@@ -450,8 +468,27 @@ class CryptographicTracebackServer:
                 termination_reason = "identity_binding_mismatch_at_hop"
                 break
 
-            # 2. Check extension signature if present
-            sig_valid = True
+            # 2. Check extension signature if present or required
+            sig_valid: Optional[bool] = None
+            sig_status = "N/A"
+
+            if require_signature and record.signature is None:
+                verified_hops.append(
+                    VerifiedHop(
+                        hop_index=hop_idx + 1,
+                        sender_account=record.sender_account,
+                        sender_device=record.sender_device,
+                        receiver_account=record.receiver_account,
+                        receiver_device=record.receiver_device,
+                        address_hex=mid.hex(),
+                        signature_valid=False,
+                        signature_status="MISSING",
+                        status="missing_required_signature_downgrade_blocked",
+                    )
+                )
+                termination_reason = "missing_required_signature_in_pki_mode"
+                break
+
             if record.signature is not None:
                 if record.sender_pubkey_raw is None:
                     termination_reason = "missing_sender_public_key_in_record"
@@ -467,6 +504,7 @@ class CryptographicTracebackServer:
                             receiver_device=record.receiver_device,
                             address_hex=mid.hex(),
                             signature_valid=False,
+                            signature_status="INVALID",
                             status="missing_trusted_registry_identity_unverified",
                         )
                     )
@@ -485,12 +523,14 @@ class CryptographicTracebackServer:
                             receiver_device=record.receiver_device,
                             address_hex=mid.hex(),
                             signature_valid=False,
+                            signature_status="INVALID",
                             status="unregistered_self_asserted_key_rejected",
                         )
                     )
                     termination_reason = "unregistered_self_asserted_key_rejected"
                     break
 
+                ct_digest = hashlib.sha256(record.ct).digest()
                 expected_payload = _compute_extension_payload(
                     mid=mid,
                     message_digest=message_digest,
@@ -498,10 +538,13 @@ class CryptographicTracebackServer:
                     sender_device=record.sender_device,
                     receiver_account=record.receiver_account,
                     receiver_device=record.receiver_device,
+                    ct_digest=ct_digest,
                 )
                 try:
                     sender_pub = Ed25519PublicKey.from_public_bytes(record.sender_pubkey_raw)
                     sender_pub.verify(record.signature, expected_payload)
+                    sig_valid = True
+                    sig_status = "VALID"
                 except (ValueError, InvalidSignature):
                     verified_hops.append(
                         VerifiedHop(
@@ -512,6 +555,7 @@ class CryptographicTracebackServer:
                             receiver_device=record.receiver_device,
                             address_hex=mid.hex(),
                             signature_valid=False,
+                            signature_status="INVALID",
                             status="signature_verification_failed_framing_blocked",
                         )
                     )
@@ -531,6 +575,7 @@ class CryptographicTracebackServer:
                     receiver_device=record.receiver_device,
                     address_hex=mid.hex(),
                     signature_valid=sig_valid,
+                    signature_status=sig_status,
                     status="verified_hop_authenticated",
                 )
             )
@@ -553,6 +598,17 @@ class CryptographicTracebackServer:
             else "TERMINATED_EARLY"
         )
 
+        # Epistemic Invariant: candidate origin is populated ONLY when traversal halts
+        # because a predecessor record is absent in server state (candidate origin condition)
+        # or origin is reached. Traversal failures (cycles, missing signatures, identity mismatch)
+        # do not establish a candidate origin.
+        is_candidate_origin = (
+            termination_reason == "predecessor_record_absent_candidate_origin_unverified"
+            or origin_reached
+        )
+        candidate_account = origin_account if is_candidate_origin else None
+        candidate_device = origin_device if is_candidate_origin else None
+
         return TracebackExecutionResult(
             outcome=outcome,
             origin_reached=origin_reached,
@@ -561,8 +617,8 @@ class CryptographicTracebackServer:
             recovered_hops_count=len(verified_hops),
             termination_reason=termination_reason,
             verified_hops=tuple(verified_hops),
-            candidate_origin_account=origin_account,
-            candidate_origin_device=origin_device,
+            candidate_origin_account=candidate_account,
+            candidate_origin_device=candidate_device,
         )
 
 
@@ -590,6 +646,7 @@ def originate_message(
     enc_key_0 = _kdf_enc(k_0)
     ct_0 = _aes_ctr(enc_key_0, k_prev_0)
 
+    ct_digest_0 = hashlib.sha256(ct_0).digest()
     pubkey_bytes: Optional[bytes] = None
     sig: Optional[bytes] = None
     if attach_extension_signature:
@@ -601,6 +658,7 @@ def originate_message(
             sender_device=sender.device_id,
             receiver_account=receiver_account,
             receiver_device=receiver_device,
+            ct_digest=ct_digest_0,
         )
         sig = sender.private_key.sign(payload)
         pubkey_bytes = sender.public_key_bytes
@@ -615,7 +673,12 @@ def originate_message(
         receiver_device=receiver_device,
         signature=sig,
     )
-    server.process_delivery(tag)
+    stored = server.process_delivery(tag)
+    if not stored:
+        raise DuplicateMessageIdentifierError(
+            f"Duplicate message identifier mid={mid_0.hex()[:16]}... already exists in server state; "
+            "delivery rejected per Tyagi et al. (CCS 2019) Figure 3 Svr-Process specification."
+        )
 
     envelope = MessageEnvelope(
         message=message,
@@ -627,6 +690,7 @@ def originate_message(
         receiver_device=receiver_device,
         sender_pubkey_raw=pubkey_bytes,
         signature=sig,
+        ct_digest=ct_digest_0 if attach_extension_signature else None,
     )
 
     received_state = ReceivedMessageState(
@@ -668,6 +732,7 @@ def forward_message(
     claimed_sender_account = sender.account_id
     claimed_sender_device = sender.device_id
 
+    ct_digest = hashlib.sha256(ct).digest()
     pubkey_bytes: Optional[bytes] = None
     sig: Optional[bytes] = None
     if attach_extension_signature:
@@ -679,6 +744,7 @@ def forward_message(
             sender_device=claimed_sender_device,
             receiver_account=receiver_account,
             receiver_device=receiver_device,
+            ct_digest=ct_digest,
         )
         if adversarial_corrupt_signature:
             raw = actual_signing_sender.private_key.sign(payload)
@@ -697,7 +763,12 @@ def forward_message(
         receiver_device=receiver_device,
         signature=sig,
     )
-    server.process_delivery(tag)
+    stored = server.process_delivery(tag)
+    if not stored:
+        raise DuplicateMessageIdentifierError(
+            f"Duplicate message identifier mid={mid_next.hex()[:16]}... already exists in server state; "
+            "delivery rejected per Tyagi et al. (CCS 2019) Figure 3 Svr-Process specification."
+        )
 
     envelope = MessageEnvelope(
         message=message,
@@ -709,6 +780,7 @@ def forward_message(
         receiver_device=receiver_device,
         sender_pubkey_raw=pubkey_bytes,
         signature=sig,
+        ct_digest=ct_digest if attach_extension_signature else None,
     )
 
     next_received_state = ReceivedMessageState(
@@ -720,5 +792,4 @@ def forward_message(
         receiver_account=receiver_account,
         receiver_device=receiver_device,
     )
-    return envelope, next_received_state, tag
     return envelope, next_received_state, tag

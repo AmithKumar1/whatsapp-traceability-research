@@ -10,6 +10,7 @@ from opentrace.protocols.traceback2019_crypto import (
     CryptographicTracebackServer,
     DeviceIdentity,
     DeviceRegistry,
+    DuplicateMessageIdentifierError,
     PathPointer,
     RecMsgVerificationError,
     _aes_ctr,
@@ -62,6 +63,9 @@ def test_default_symmetric_mode_without_signatures() -> None:
     assert result["recovered_origin_device"] == "dev:alice-primary"
     assert result["recovered_hops_count"] == 4
     assert "predecessor_record_absent" in result["termination_reason"]
+    for hop in result["verified_hops"]:
+        assert hop["signature_valid"] is None
+        assert hop["signature_status"] == "N/A"
 
 
 def test_explicit_opt_in_to_pki_extension() -> None:
@@ -76,6 +80,7 @@ def test_explicit_opt_in_to_pki_extension() -> None:
     assert result["recovered_hops_count"] == 3
     for hop in result["verified_hops"]:
         assert hop["signature_valid"] is True
+        assert hop["signature_status"] == "VALID"
 
 
 def test_missing_registry_fails_closed() -> None:
@@ -172,6 +177,8 @@ def test_tampered_content_aborts_forwarding_before_downstream_hops() -> None:
     assert result["outcome"] == "FAILED_VERIFICATION"
     assert result["origin_reached"] is False
     assert result["recovered_hops_count"] == 1  # Only hop 1 succeeded; hops 2-5 never occurred
+    assert result["candidate_origin_account"] is None
+    assert result["candidate_origin_device"] is None
     assert "recipient_verification_failed_at_hop_2" in result["termination_reason"]
     assert "tampered_content" in result["termination_reason"]
 
@@ -184,6 +191,8 @@ def test_corrupt_signature_aborts_forwarding_before_downstream_hops() -> None:
     assert result["outcome"] == "FAILED_VERIFICATION"
     assert result["origin_reached"] is False
     assert result["recovered_hops_count"] == 2  # Only hops 1-2 succeeded; hops 3-5 never occurred
+    assert result["candidate_origin_account"] is None
+    assert result["candidate_origin_device"] is None
     assert "recipient_verification_failed_at_hop_3" in result["termination_reason"]
     assert "forged_signature" in result["termination_reason"]
 
@@ -195,6 +204,8 @@ def test_cyclic_forwarding_actually_exercises_loop_and_terminates() -> None:
     assert result["origin_reached"] is False
     assert result["termination_reason"] == "cyclic_forwarding_detected"
     assert result["outcome"] == "TERMINATED_EARLY"
+    assert result["candidate_origin_account"] is None
+    assert result["candidate_origin_device"] is None
 
 
 def test_fixed_deterministic_test_vector() -> None:
@@ -516,3 +527,163 @@ def test_missing_hop_experiment_scenario() -> None:
     assert result["recovered_origin_account"] is None
     assert result["recovered_origin_device"] is None
     assert result["termination_reason"] == "predecessor_record_absent_missing_intermediate_evidence"
+
+
+def test_signature_stripping_downgrade_rejected() -> None:
+    """Regression test (Finding 1): Missing signatures in PKI mode MUST be rejected (no silent bypass)."""
+    server = CryptographicTracebackServer()
+    registry = DeviceRegistry()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    registry.register(alice.account_id, alice.device_id, alice.public_key_bytes)
+    registry.register(bob.account_id, bob.device_id, bob.public_key_bytes)
+
+    msg = b"Testing signature stripping protection"
+    # Originate message without signature
+    env, rec_alice, tag = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
+        message=msg,
+        attach_extension_signature=False,
+    )
+
+    # 1. Recipient rec_msg with require_signature=True must reject unsigned envelope
+    with pytest.raises(RecMsgVerificationError, match="Missing required digital signature"):
+        rec_msg(bob.account_id, bob.device_id, env, registry=registry, require_signature=True)
+
+    # 2. Server traceback with require_signature=True must fail closed on unsigned hop
+    trace_res = server.trace(
+        message=msg,
+        reporting_account=bob.account_id,
+        reporting_device=bob.device_id,
+        reporting_pointer=PathPointer(env.tracing_key),
+        registry=registry,
+        require_signature=True,
+    )
+    assert trace_res.outcome == "FAILED_VERIFICATION"
+    assert trace_res.origin_reached is False
+    assert trace_res.termination_reason == "missing_required_signature_in_pki_mode"
+    assert trace_res.candidate_origin_account is None
+    assert trace_res.candidate_origin_device is None
+    assert len(trace_res.verified_hops) == 1
+    assert trace_res.verified_hops[0].signature_status == "MISSING"
+
+
+def test_tampered_predecessor_pointer_fails_signature_in_pki_mode() -> None:
+    """Regression test (Finding 2): Modifying server-side ct breaks signature verification."""
+    server = CryptographicTracebackServer()
+    registry = DeviceRegistry()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    charlie = DeviceIdentity.generate("acct:charlie", "dev:charlie-01")
+    registry.register(alice.account_id, alice.device_id, alice.public_key_bytes)
+    registry.register(bob.account_id, bob.device_id, bob.public_key_bytes)
+    registry.register(charlie.account_id, charlie.device_id, charlie.public_key_bytes)
+
+    msg = b"Testing predecessor pointer integrity"
+    env_ab, rec_bob, tag_ab = originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
+        message=msg,
+        attach_extension_signature=True,
+    )
+    rec_bob_v = rec_msg(bob.account_id, bob.device_id, env_ab, registry=registry, require_signature=True)
+
+    env_bc, rec_charlie, tag_bc = forward_message(
+        server=server,
+        sender=bob,
+        receiver_account=charlie.account_id,
+        receiver_device=charlie.device_id,
+        received_state=rec_bob_v,
+        attach_extension_signature=True,
+    )
+    rec_charlie_v = rec_msg(charlie.account_id, charlie.device_id, env_bc, registry=registry, require_signature=True)
+
+    # Attacker tampers with predecessor pointer ciphertext on server
+    orig_rec = server._table[tag_bc.addr]
+    tampered_ct = bytes([b ^ 0x01 for b in orig_rec.ct])
+    server._table[tag_bc.addr] = type(orig_rec)(
+        ct=tampered_ct,
+        sender_account=orig_rec.sender_account,
+        sender_device=orig_rec.sender_device,
+        sender_pubkey_raw=orig_rec.sender_pubkey_raw,
+        receiver_account=orig_rec.receiver_account,
+        receiver_device=orig_rec.receiver_device,
+        signature=orig_rec.signature,
+    )
+
+    # Server traceback rejects the tampered predecessor pointer link
+    trace_res = server.trace(
+        message=msg,
+        reporting_account=charlie.account_id,
+        reporting_device=charlie.device_id,
+        reporting_pointer=PathPointer(rec_charlie_v.tracing_key),
+        registry=registry,
+        require_signature=True,
+    )
+    assert trace_res.outcome == "FAILED_VERIFICATION"
+    assert trace_res.termination_reason == "forged_sender_signature_detected"
+    assert trace_res.candidate_origin_account is None
+    assert trace_res.candidate_origin_device is None
+
+
+def test_invalid_adversarial_hop_configurations_rejected() -> None:
+    """Regression test (Finding 4): Invalid hops or adversarial_hop values are rejected at entry."""
+    with pytest.raises(ValueError, match="requires at least 2 hops"):
+        run_experiment(hops=1, scenario="tampered_content")
+
+    with pytest.raises(ValueError, match="adversarial_hop must satisfy 2 <= adversarial_hop <= hops"):
+        run_experiment(hops=4, scenario="tampered_content", adversarial_hop=1)
+
+    with pytest.raises(ValueError, match="adversarial_hop must satisfy 2 <= adversarial_hop <= hops"):
+        run_experiment(hops=4, scenario="tampered_content", adversarial_hop=5)
+
+
+def test_duplicate_message_identifier_rejected() -> None:
+    """Regression test (Finding 7): Reusing tracing keys raises DuplicateMessageIdentifierError."""
+    server = CryptographicTracebackServer()
+    alice = DeviceIdentity.generate("acct:alice", "dev:alice-01")
+    bob = DeviceIdentity.generate("acct:bob", "dev:bob-01")
+    fixed_k = b"\x42" * 32
+    msg = b"Duplicate identifier test message"
+
+    # First origination succeeds
+    originate_message(
+        server=server,
+        sender=alice,
+        receiver_account=bob.account_id,
+        receiver_device=bob.device_id,
+        message=msg,
+        fixed_tracing_key=fixed_k,
+    )
+
+    # Second origination with identical (k, m) -> identical mid MUST be rejected per Figure 3 Svr-Process
+    with pytest.raises(DuplicateMessageIdentifierError, match="already exists in server state"):
+        originate_message(
+            server=server,
+            sender=alice,
+            receiver_account=bob.account_id,
+            receiver_device=bob.device_id,
+            message=msg,
+            fixed_tracing_key=fixed_k,
+        )
+
+def test_ground_truth_verifies_device_and_hop_sequence() -> None:
+    """Regression test (Finding 6): Ground-truth certification strictly checks device ID."""
+    report = run_experiment(hops=3, scenario="valid_linear_path")
+    res = report["traceback_result"]
+    assert res["outcome"] == "SUCCESS"
+    assert res["origin_reached"] is True
+    # The true origin device Dev:alice-primary is certified alongside the account
+    assert res["candidate_origin_account"] == "acct:alice"
+    assert res["candidate_origin_device"] == "dev:alice-primary"
+    assert res["recovered_origin_account"] == "acct:alice"
+    assert res["recovered_origin_device"] == "dev:alice-primary"
+    # Ensure all hops in the sequence match forward chain
+    assert len(res["verified_hops"]) == 3
+    for hop in res["verified_hops"]:
+        assert hop["status"] == "verified_hop_authenticated"
