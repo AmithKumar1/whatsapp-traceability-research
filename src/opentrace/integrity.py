@@ -20,6 +20,9 @@ SIGNATURE_NAME = "manifest.sig"
 PUBLIC_KEY_NAME = "signing-public-key.pem"
 DOMAIN = b"OpenTrace-EvidenceRecord-v2\x00"
 SIGN_DOMAIN = b"OpenTrace-Manifest-v0.2\x00"
+CANONICALIZATION_JCS = "RFC 8785 (JSON Canonicalization Scheme / JCS); see docs/CRYPTO_DECISIONS.md"
+CANONICALIZATION_LEGACY = "OpenTrace restricted canonical JSON profile v0.2; see docs/CRYPTO_DECISIONS.md"
+SUPPORTED_CANONICALIZATIONS = {CANONICALIZATION_JCS, CANONICALIZATION_LEGACY}
 _MANIFEST_FIELDS = {
     "format", "manifest_version", "case_id", "created_at", "signing_algorithm",
     "signing_key_fingerprint", "digest_algorithm", "canonicalization", "record_count",
@@ -93,6 +96,7 @@ def seal_case(
     case_id: str,
     files: list[tuple[str, str, str]],
     private_key: Ed25519PrivateKey | None = None,
+    canonicalization: str = CANONICALIZATION_JCS,
 ) -> dict[str, Any]:
     """Hash and sign all declared payload files; generated keys are demo-only.
 
@@ -150,14 +154,18 @@ def seal_case(
         "signing_algorithm": "Ed25519",
         "signing_key_fingerprint": _public_key_fingerprint(public_key),
         "digest_algorithm": "SHA-256",
-        "canonicalization": "OpenTrace restricted canonical JSON profile v0.2; see docs/CRYPTO_DECISIONS.md",
+        "canonicalization": canonicalization,
         "record_count": len(records),
         "records": records,
         "head_record_hash": previous,
         "trust_note": (
             "A bundled public key is not an independent trust anchor. Obtain the expected key fingerprint "
-            "through a separate trusted channel. The canonical JSON profile rejects floating-point values "
-            "and is not a complete RFC 8785 implementation."
+            "through a separate trusted channel. "
+            + (
+                "Canonical JSON is generated per RFC 8785 (JCS)."
+                if canonicalization == CANONICALIZATION_JCS
+                else "The canonical JSON profile rejects floating-point values and is not a complete RFC 8785 implementation."
+            )
         ),
     }
     signature = private_key.sign(SIGN_DOMAIN + canonical_bytes(manifest))
@@ -194,7 +202,7 @@ def verify_case(case_dir: Path, trusted_public_key_path: Path | None = None) -> 
         raise IntegrityError("unsupported manifest version")
     if manifest.get("signing_algorithm") != "Ed25519" or manifest.get("digest_algorithm") != "SHA-256":
         raise IntegrityError("unsupported signature or digest algorithm")
-    if manifest.get("canonicalization") != "OpenTrace restricted canonical JSON profile v0.2; see docs/CRYPTO_DECISIONS.md":
+    if manifest.get("canonicalization") not in SUPPORTED_CANONICALIZATIONS:
         raise IntegrityError("unsupported canonicalization profile")
     if not isinstance(manifest.get("case_id"), str) or not manifest["case_id"]:
         raise IntegrityError("manifest case_id must be a non-empty string")
@@ -296,6 +304,7 @@ def verify_case(case_dir: Path, trusted_public_key_path: Path | None = None) -> 
         "status": "VALID",
         "manifest_version": "0.2",
         "case_id": manifest.get("case_id"),
+        "canonicalization": manifest.get("canonicalization"),
         "records_checked": len(records),
         "files_checked": checked_files,
         "manifest_signature": "valid",
@@ -308,6 +317,10 @@ def verify_case(case_dir: Path, trusted_public_key_path: Path | None = None) -> 
             "A bundled public key is not an independent trust anchor; compare the fingerprint with a separately trusted value.",
             "No RFC 3161 trusted timestamp token or externally witnessed transparency proof is included.",
             "Integrity verification cannot establish that underlying statements are true or that evidence was lawfully acquired.",
-            "The restricted canonical JSON profile rejects floating-point values and is not a complete RFC 8785 implementation.",
+            (
+                "Canonical JSON is verified per RFC 8785 (JCS)."
+                if manifest.get("canonicalization") == CANONICALIZATION_JCS
+                else "The restricted canonical JSON profile rejects floating-point values and is not a complete RFC 8785 implementation."
+            ),
         ],
     }

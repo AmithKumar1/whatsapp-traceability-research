@@ -2,6 +2,7 @@
 # This is not a fully transitive lockfile; package transitive dependencies
 # are resolved within each pinned package's declared constraints.
 cryptography==50.0.2
+rfc8785==0.1.4
 pytest==9.1.1
 jsonschema==4.26.0
 build==1.6.1

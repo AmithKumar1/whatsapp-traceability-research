@@ -139,7 +139,8 @@ def test_restricted_canonical_json_sorts_unicode_keys_by_utf16() -> None:
     canonical = canonical_bytes(data).decode("utf-8")
     assert canonical.index('"z"') < canonical.index('"😀"') < canonical.index('"\ue000"')
     with pytest.raises(ValueError, match="Floating-point"):
-        canonical_bytes({"value": 1.25})
+        canonical_bytes({"value": 1.25}, allow_floats=False)
+    assert canonical_bytes({"value": 1.25}) == b'{"value":1.25}'
 
 
 def test_authorization_demo_passes_policy(tmp_path: Path) -> None:

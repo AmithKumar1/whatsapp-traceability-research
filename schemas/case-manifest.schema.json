@@ -44,7 +44,10 @@
       "const": "SHA-256"
     },
     "canonicalization": {
-      "const": "OpenTrace restricted canonical JSON profile v0.2; see docs/CRYPTO_DECISIONS.md"
+      "enum": [
+        "OpenTrace restricted canonical JSON profile v0.2; see docs/CRYPTO_DECISIONS.md",
+        "RFC 8785 (JSON Canonicalization Scheme / JCS); see docs/CRYPTO_DECISIONS.md"
+      ]
     },
     "record_count": {
       "type": "integer",

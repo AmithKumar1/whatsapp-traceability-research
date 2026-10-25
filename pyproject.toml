@@ -20,7 +20,10 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Security :: Cryptography",
 ]
-dependencies = ["cryptography>=44.0"]
+dependencies = [
+  "cryptography>=44.0",
+  "rfc8785==0.1.4",
+]
 
 [project.urls]
 Repository = "https://github.com/AmithKumar1/whatsapp-traceability-research"

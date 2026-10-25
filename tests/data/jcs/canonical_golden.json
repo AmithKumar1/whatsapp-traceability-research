@@ -1,0 +1,85 @@
+{
+  "description": "RFC 8785 (JSON Canonicalization Scheme / JCS) Cross-Language Golden Vectors",
+  "reference": "RFC 8785",
+  "test_vectors": [
+    {
+      "name": "utf16_surrogate_sort",
+      "description": "RFC 8785 UTF-16 code unit property sorting (astral plane U+1F4A9 before BMP U+E000)",
+      "input": {
+        "": 1,
+        "💩": 2,
+        "a": 3,
+        "1": 4,
+        "é": 5,
+        "€": 6
+      },
+      "expected_canonical": "{\"1\":4,\"a\":3,\"é\":5,\"€\":6,\"💩\":2,\"\":1}",
+      "sha256": "e816ff95934837502d75ad618c390a5a32e722ece7cd431df8cdefef8e0ec651"
+    },
+    {
+      "name": "escapes_and_multibyte_utf8",
+      "description": "RFC 8785 strict escaping: only quotes, backslash and control chars escaped; UTF-8 literals preserved",
+      "input": {
+        "controls": "\b\f\n\r\t\u0000\u001f",
+        "quotes_backslash": "\"hello\\world\"",
+        "multilingual": "English, Français (éàç), 日本語 (こんにちは), العربية (مرحبا), हिन्दी (नमस्ते)",
+        "symbols": "© ® ™ € 𝄞"
+      },
+      "expected_canonical": "{\"controls\":\"\\b\\f\\n\\r\\t\\u0000\\u001f\",\"multilingual\":\"English, Français (éàç), 日本語 (こんにちは), العربية (مرحبا), हिन्दी (नमस्ते)\",\"quotes_backslash\":\"\\\"hello\\\\world\\\"\",\"symbols\":\"© ® ™ € 𝄞\"}",
+      "sha256": "df563886b5f4eb13fec323208d744890932bd4c78452d078d3b4a2959db317b6"
+    },
+    {
+      "name": "ecmascript_numbers",
+      "description": "RFC 8785 ECMAScript 6 / IEEE 754 number formatting rules",
+      "input": {
+        "zero": 0,
+        "one": 1,
+        "minus_one": -1,
+        "max_safe_int": 9007199254740991,
+        "min_safe_int": -9007199254740991,
+        "float_quarter": 1.25,
+        "float_exp_boundary_high": 1e+21,
+        "float_just_below_exp_boundary": 1e+20,
+        "float_exp_boundary_low": 1e-06,
+        "float_below_exp_boundary_low": 5e-07
+      },
+      "expected_canonical": "{\"float_below_exp_boundary_low\":5e-7,\"float_exp_boundary_high\":1e+21,\"float_exp_boundary_low\":0.000001,\"float_just_below_exp_boundary\":100000000000000000000,\"float_quarter\":1.25,\"max_safe_int\":9007199254740991,\"min_safe_int\":-9007199254740991,\"minus_one\":-1,\"one\":1,\"zero\":0}",
+      "sha256": "5d45f70170fcc21f9fff720bf6b78c8ca5c7eebd709c11bdb3a0056c20402fe6"
+    },
+    {
+      "name": "nested_heterogeneous_structure",
+      "description": "Complex nested arrays and mappings with booleans, null, strings, and integers",
+      "input": {
+        "meta": {
+          "version": 1,
+          "active": true,
+          "deprecated": false,
+          "notes": null
+        },
+        "records": [
+          {
+            "id": "rec_001",
+            "scores": [
+              10,
+              20,
+              30
+            ]
+          },
+          {
+            "id": "rec_002",
+            "scores": []
+          }
+        ],
+        "tags": [
+          "alpha",
+          "beta",
+          "gamma"
+        ],
+        "empty_dict": {},
+        "empty_list": []
+      },
+      "expected_canonical": "{\"empty_dict\":{},\"empty_list\":[],\"meta\":{\"active\":true,\"deprecated\":false,\"notes\":null,\"version\":1},\"records\":[{\"id\":\"rec_001\",\"scores\":[10,20,30]},{\"id\":\"rec_002\",\"scores\":[]}],\"tags\":[\"alpha\",\"beta\",\"gamma\"]}",
+      "sha256": "c84ed0406f1dcadff6a55a1ad967b8e69a0959aec46d540be9267845e9498a40"
+    }
+  ]
+}
