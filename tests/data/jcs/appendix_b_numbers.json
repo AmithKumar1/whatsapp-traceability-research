@@ -1,0 +1,106 @@
+{
+  "description": "RFC 8785 Appendix B - ECMAScript-Compatible JSON Number Serialization Samples",
+  "reference": "https://datatracker.ietf.org/doc/html/rfc8785#appendix-B",
+  "samples": [
+    {
+      "ieee754_hex": "0000000000000000",
+      "expected_json": "0",
+      "comment": "Zero"
+    },
+    {
+      "ieee754_hex": "8000000000000000",
+      "expected_json": "0",
+      "comment": "Minus zero"
+    },
+    {
+      "ieee754_hex": "0000000000000001",
+      "expected_json": "5e-324",
+      "comment": "Min positive subnormal number"
+    },
+    {
+      "ieee754_hex": "8000000000000001",
+      "expected_json": "-5e-324",
+      "comment": "Min negative subnormal number"
+    },
+    {
+      "ieee754_hex": "7fefffffffffffff",
+      "expected_json": "1.7976931348623157e+308",
+      "comment": "Max positive number"
+    },
+    {
+      "ieee754_hex": "ffefffffffffffff",
+      "expected_json": "-1.7976931348623157e+308",
+      "comment": "Max negative number"
+    },
+    {
+      "ieee754_hex": "4340000000000000",
+      "expected_json": "9007199254740992",
+      "comment": "Max positive integer representation"
+    },
+    {
+      "ieee754_hex": "c340000000000000",
+      "expected_json": "-9007199254740992",
+      "comment": "Max negative integer representation"
+    },
+    {
+      "ieee754_hex": "4430000000000000",
+      "expected_json": "295147905179352830000",
+      "comment": "Approx 2^68"
+    },
+    {
+      "ieee754_hex": "44b52d02c7e14af5",
+      "expected_json": "9.999999999999997e+22",
+      "comment": "Large number sample 1"
+    },
+    {
+      "ieee754_hex": "44b52d02c7e14af6",
+      "expected_json": "1e+23",
+      "comment": "Large number sample 2"
+    },
+    {
+      "ieee754_hex": "44b52d02c7e14af7",
+      "expected_json": "1.0000000000000001e+23",
+      "comment": "Large number sample 3"
+    },
+    {
+      "ieee754_hex": "3ff0000000000000",
+      "expected_json": "1",
+      "comment": "One"
+    },
+    {
+      "ieee754_hex": "bff0000000000000",
+      "expected_json": "-1",
+      "comment": "Minus one"
+    },
+    {
+      "ieee754_hex": "4008000000000000",
+      "expected_json": "3",
+      "comment": "Three"
+    },
+    {
+      "ieee754_hex": "4014000000000000",
+      "expected_json": "5",
+      "comment": "Five"
+    },
+    {
+      "ieee754_hex": "4040000000000000",
+      "expected_json": "32",
+      "comment": "Thirty-two"
+    },
+    {
+      "ieee754_hex": "3cd203af9ee75616",
+      "expected_json": "1e-15",
+      "comment": "Scientific notation for small fraction"
+    },
+    {
+      "ieee754_hex": "3eb0c6f7a0b5ed8d",
+      "expected_json": "0.000001",
+      "comment": "1e-6 boundary value"
+    },
+    {
+      "ieee754_hex": "3ea0c6f7a0b5ed8d",
+      "expected_json": "5e-7",
+      "comment": "Below 1e-6 boundary uses exponential notation"
+    }
+  ]
+}

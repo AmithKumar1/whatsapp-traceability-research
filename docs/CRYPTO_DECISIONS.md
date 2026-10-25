@@ -1,6 +1,6 @@
 # Cryptography Decision Record
 
-**Current release:** v0.5.2 (alpha research lab). Legacy `OpenTrace` domain-separation and serialized format identifiers are retained where changing them would invalidate existing fixtures or signed data.
+**Current release:** v0.6.0 (Milestone v0.7.0 development). Legacy `OpenTrace` domain-separation and serialized format identifiers are retained where changing them would invalidate existing fixtures or signed data.
 
 ## Active implementation profile
 
@@ -9,7 +9,7 @@
 | Evidence-file digest | SHA-256 | Interoperable digest with an explicit identifier. Digest match is integrity evidence, not proof that source claims are true. |
 | Detached manifest signature | Ed25519 via `cryptography` | Mature, compact classical signature. A public key must be pinned through a separate trusted channel to identify its owner. |
 | Evidence record hash links | SHA-256 with domain-separated prefix | Detects reordering/alteration within a signed manifest. The manifest signature and trusted key are essential; a local chain is not an externally witnessed transparency log. |
-| Canonical encoding | WhatsApp Traceability Research Lab restricted canonical JSON v0.2 | Null, booleans, strings, lists, mappings, and safe integers; floats are rejected; object keys sort by UTF-16 code units. This improves Unicode interoperability but **is not a complete RFC 8785 implementation**. Do not claim general JCS interoperability. |
+| Canonical encoding | RFC 8785 JSON Canonicalization Scheme (JCS) via `rfc8785==0.1.4` | Standardized canonical JSON encoding per RFC 8785 (UTF-16 code-unit property sorting, ECMAScript 6 IEEE 754 float formatting, strict whitespace stripping). Maintains byte-for-byte backward verification compatibility with legacy v0.2 restricted-profile manifests. |
 | Duplicate JSON properties | Rejected by strict parser | Duplicate property names can be interpreted differently by consumers and must not enter signed inputs. |
 | Local Merkle inclusion proof | SHA-256 with `0x00` leaf / `0x01` node domain separation | Implements a local proof exercise following RFC 9162's tree-hash convention. It does not include a signed tree head, consistency proof, network log, or independent witness. |
 | Authorization approvals | Ed25519 signatures bound to request digest, role, trust domain, and time | Demonstrates multi-party policy checks. Trust registry and policy require separate secure provisioning; this is not legal validation or proof that trust domains are genuinely independent. |
