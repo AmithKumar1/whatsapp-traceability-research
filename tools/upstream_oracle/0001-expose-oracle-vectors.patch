@@ -1,0 +1,181 @@
+From 24644f73fae82c1f6f4d7daea4f24638ecfd060b Mon Sep 17 00:00:00 2001
+Subject: [PATCH] expose oracle primitives and add reference vector generator
+
+diff --git a/tracing/examples/oracle_vectors.rs b/tracing/examples/oracle_vectors.rs
+new file mode 100644
+index 0000000..bc29430
+--- /dev/null
++++ b/tracing/examples/oracle_vectors.rs
+@@ -0,0 +1,100 @@
++use std::fmt::Write;
++use tracing::path::{generate_tag, new_message, verify_tag, RecTraceTag};
++use tracing::{crprf, decipher, encipher, hash, prf};
++
++fn to_hex(bytes: &[u8]) -> String {
++    let mut s = String::with_capacity(bytes.len() * 2);
++    for &b in bytes {
++        write!(&mut s, "{:02x}", b).unwrap();
++    }
++    s
++}
++
++fn main() {
++    let key1: [u8; 16] = [
++        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
++    ];
++    let key2: [u8; 16] = [
++        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
++        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
++    ];
++    let block: [u8; 16] = [
++        0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
++        0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
++    ];
++    let message = b"Tyagi et al. CCS 2019 reference differential test message";
++    let wrong_message = b"Tampered message content";
++
++    // 1. Primitive calls
++    let hash_out = hash(message);
++    let prf_out = prf(&key1, message);
++    let crprf_out = crprf(&key1, message);
++    let enc_out = encipher(&key1, &block);
++    let dec_out = decipher(&key1, &enc_out);
++    assert_eq!(dec_out, block);
++
++    // 2. Protocol Path calls: Origin hop
++    let md0 = new_message(message);
++    assert_eq!(md0.ptr, [0u8; 16]);
++    let tag0 = generate_tag(&key1, message, &md0);
++    assert_eq!(tag0.addr, crprf_out);
++
++    let rec_tag0 = RecTraceTag { addr: tag0.addr };
++    let verify_valid = verify_tag(&key1, message, &rec_tag0);
++    assert!(verify_valid.is_some());
++    let md1 = verify_valid.unwrap();
++    assert_eq!(md1.ptr, key1);
++
++    let verify_tampered = verify_tag(&key1, wrong_message, &rec_tag0);
++    assert!(verify_tampered.is_none());
++
++    // 3. Forwarding hop (hop 1)
++    let tag1 = generate_tag(&key2, message, &md1);
++    let expected_ct1 = encipher(&key2, &key1);
++    assert_eq!(tag1.ct, expected_ct1);
++
++    // Output structured JSON
++    println!("{{");
++    println!("  \"provenance\": {{");
++    println!("    \"repository\": \"https://github.com/nirvantyagi/tracing\",");
++    println!("    \"commit\": \"24644f73fae82c1f6f4d7daea4f24638ecfd060b\",");
++    println!("    \"profile\": \"upstream-rust-prototype-v1\",");
++    println!("    \"generator\": \"examples/oracle_vectors.rs\"");
++    println!("  }},");
++    println!("  \"inputs\": {{");
++    println!("    \"key1_hex\": \"{}\",", to_hex(&key1));
++    println!("    \"key2_hex\": \"{}\",", to_hex(&key2));
++    println!("    \"block_hex\": \"{}\",", to_hex(&block));
++    println!("    \"message_utf8\": \"{}\",", std::str::from_utf8(message).unwrap());
++    println!("    \"message_hex\": \"{}\",", to_hex(message));
++    println!("    \"wrong_message_utf8\": \"{}\",", std::str::from_utf8(wrong_message).unwrap());
++    println!("    \"wrong_message_hex\": \"{}\"", to_hex(wrong_message));
++    println!("  }},");
++    println!("  \"primitives\": {{");
++    println!("    \"hash_trunc_sha3_256_hex\": \"{}\",", to_hex(&hash_out));
++    println!("    \"prf_trunc_sha3_256_hex\": \"{}\",", to_hex(&prf_out));
++    println!("    \"crprf_hmac_sha3_256_hex\": \"{}\",", to_hex(&crprf_out));
++    println!("    \"aes128_encipher_hex\": \"{}\",", to_hex(&enc_out));
++    println!("    \"aes128_decipher_recovered_hex\": \"{}\"", to_hex(&dec_out));
++    println!("  }},");
++    println!("  \"path_protocol\": {{");
++    println!("    \"origin_metadata_ptr_hex\": \"{}\",", to_hex(&md0.ptr));
++    println!("    \"origin_sender_tag\": {{");
++    println!("      \"addr_hex\": \"{}\",", to_hex(&tag0.addr));
++    println!("      \"ct_hex\": \"{}\"", to_hex(&tag0.ct));
++    println!("    }},");
++    println!("    \"recipient_verify_valid\": {{");
++    println!("      \"success\": true,");
++    println!("      \"recovered_ptr_hex\": \"{}\"", to_hex(&md1.ptr));
++    println!("    }},");
++    println!("    \"recipient_verify_wrong_message\": {{");
++    println!("      \"success\": false");
++    println!("    }},");
++    println!("    \"forward_hop1_sender_tag\": {{");
++    println!("      \"addr_hex\": \"{}\",", to_hex(&tag1.addr));
++    println!("      \"ct_hex\": \"{}\"", to_hex(&tag1.ct));
++    println!("    }}");
++    println!("  }}");
++    println!("}}");
++}
+diff --git a/tracing/src/lib.rs b/tracing/src/lib.rs
+index f4e9b63..0a746db 100644
+--- a/tracing/src/lib.rs
++++ b/tracing/src/lib.rs
+@@ -9,19 +9,19 @@ use sha3::{Digest, Sha3_256};
+ pub mod path;
+ pub mod tree;
+ 
+-fn hash(x: &[u8]) -> [u8; 16] {
++pub fn hash(x: &[u8]) -> [u8; 16] {
+     let mut y: [u8; 16] = Default::default();
+     y.copy_from_slice(&Sha3_256::digest(x).as_slice()[0..16]);
+     y
+ }
+ 
+-fn prf(k: &[u8; 16], x: &[u8]) -> [u8; 16] {
++pub fn prf(k: &[u8; 16], x: &[u8]) -> [u8; 16] {
+     let mut y: [u8; 16] = Default::default();
+     y.copy_from_slice(&Sha3_256::digest(&[k, x].concat()).as_slice()[0..16]);
+     y
+ }
+ 
+-fn crprf(k: &[u8; 16], x: &[u8]) -> [u8; 32] {
++pub fn crprf(k: &[u8; 16], x: &[u8]) -> [u8; 32] {
+     let mut y: [u8; 32] = Default::default();
+     let mut mac = Hmac::<Sha3_256>::new_varkey(k).unwrap();
+     mac.input(x);
+@@ -29,7 +29,7 @@ fn crprf(k: &[u8; 16], x: &[u8]) -> [u8; 32] {
+     y
+ }
+ 
+-fn encipher(k: &[u8; 16], x: &[u8; 16]) -> [u8; 16] {
++pub fn encipher(k: &[u8; 16], x: &[u8; 16]) -> [u8; 16] {
+     let mut y: [u8; 16] = Default::default();
+     let cipher = Aes128::new(GenericArray::from_slice(k));
+     let mut block = GenericArray::clone_from_slice(x);
+@@ -38,7 +38,7 @@ fn encipher(k: &[u8; 16], x: &[u8; 16]) -> [u8; 16] {
+     y
+ }
+ 
+-fn decipher(k: &[u8; 16], y: &[u8; 16]) -> [u8; 16] {
++pub fn decipher(k: &[u8; 16], y: &[u8; 16]) -> [u8; 16] {
+     let mut x: [u8; 16] = Default::default();
+     let cipher = Aes128::new(GenericArray::from_slice(k));
+     let mut block = GenericArray::clone_from_slice(y);
+diff --git a/tracing/src/path.rs b/tracing/src/path.rs
+index 2229d87..d5b116e 100644
+--- a/tracing/src/path.rs
++++ b/tracing/src/path.rs
+@@ -4,18 +4,18 @@ use serde::{Deserialize, Serialize};
+ 
+ #[derive(Serialize, Deserialize)]
+ pub struct TraceMetadata {
+-    ptr: [u8; 16],
++    pub ptr: [u8; 16],
+ }
+ 
+ #[derive(Serialize, Deserialize)]
+ pub struct SenderTraceTag {
+-    addr: [u8; 32],
+-    ct: [u8; 16],
++    pub addr: [u8; 32],
++    pub ct: [u8; 16],
+ }
+ 
+ #[derive(Serialize, Deserialize)]
+ pub struct RecTraceTag {
+-    addr: [u8; 32],
++    pub addr: [u8; 32],
+ }
+ 
+ pub fn new_message(_m: &[u8]) -> TraceMetadata {

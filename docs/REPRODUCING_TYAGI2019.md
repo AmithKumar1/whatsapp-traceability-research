@@ -143,13 +143,25 @@ python -m opentrace traceback-reproduction --hops 4 --scenario cyclic_forwarding
 
 ---
 
-## 7. Deviations, Upstream Status & Future Milestones
+## 7. Deviations, Upstream Status & Reference Differential Testing
 
-### Upstream Reference Implementation Status
-- Upstream prototype: [`nirvantyagi/tracing`](https://github.com/nirvantyagi/tracing) (Rust / C dependencies, Redis server backend).
-- **Differential Interoperability Status:** Not yet completed. Direct binary differential testing requires a native Rust nightly toolchain and a running Redis instance, which are outside the pure offline Python scope of this repository. This Python implementation is a **clean-room cryptographic reproduction** following the paper's documented algorithms.
+### Upstream Reference Implementation Status & Oracle Pinning
+- **Upstream prototype:** [`nirvantyagi/tracing`](https://github.com/nirvantyagi/tracing) pinned to immutable Git commit SHA [`24644f73fae82c1f6f4d7daea4f24638ecfd060b`](https://github.com/nirvantyagi/tracing/tree/24644f73fae82c1f6f4d7daea4f24638ecfd060b).
+- **Oracle Harness & Provenance:** See [`docs/STAGE2_DIFFERENTIAL_ASSESSMENT.md`](STAGE2_DIFFERENTIAL_ASSESSMENT.md) and [`tools/upstream_oracle/PROVENANCE.md`](../tools/upstream_oracle/PROVENANCE.md).
+- **Differential Interoperability Status:** The current Python implementation is a **clean-room, paper-informed cryptographic reproduction**, not a byte-compatible wire clone of the upstream prototype. All differences are classified as `KNOWN_PROFILE_DIVERGENCE` in [`tests/test_upstream_differential.py`](../tests/test_upstream_differential.py) and verified against deterministic oracle vectors in [`tests/data/oracle/tyagi2019_rust_oracle_vectors.json`](../tests/data/oracle/tyagi2019_rust_oracle_vectors.json).
+
+### Profile Comparison Matrix
+
+| Component | Current Python Profile (`traceback2019_crypto`) | Upstream Rust Prototype (`nirvantyagi/tracing`) | Classification |
+| :--- | :--- | :--- | :--- |
+| **Tracing Key Size** | 32 bytes (256-bit symmetric key per paper Section 4) | 16 bytes (128-bit key) | `KNOWN_PROFILE_DIVERGENCE` |
+| **Message Identifier (`mid`)** | `HMAC-SHA-256` with domain prefix (`Tyagi2019-PRF-mid-v1\x00`) | `HMAC-SHA3-256` without domain prefix | `KNOWN_PROFILE_DIVERGENCE` |
+| **Pointer Encryption** | `AES-128-CTR` with `HMAC-SHA256` KDF ($K_{\text{enc}} = H(k)$) | Raw `AES-128-ECB` single-block encrypt under key $k$ | `KNOWN_PROFILE_DIVERGENCE` |
+| **Origin Predecessor Key** | Originator-sampled random dummy key $k_{\text{prev}}$ (Figure 3) | Fixed 16-byte zero sentinel (`[0; 16]`) | `KNOWN_PROFILE_DIVERGENCE` |
+| **Participant Identities** | String URIs (`acct:*`, `dev:*`) with optional Ed25519 PKI | Integer routing IDs (`u32`) without digital signatures | `KNOWN_PROFILE_DIVERGENCE` |
+| **Storage Model** | In-memory verified storage with duplicate rejection | Redis hash-map store (`ct`, `sid`, `rid`) | `KNOWN_PROFILE_DIVERGENCE` |
 
 ### Next Concrete Research Milestones
 1. **Tree-Traceback Cryptographic Extension:** Extend from linear path traceback to branching tree topologies.
 2. **Threshold Reporting:** Evaluate multi-complaint quorum requirements for intermediate node disclosure.
-3. **Upstream Differential Harness:** Create an automated CI container with native Rust/Redis to execute cross-language differential test vectors against `nirvantyagi/tracing`.
+3. **Optional Upstream Compatibility Profile:** Evaluate whether a dedicated compatibility mode (`--profile upstream-rust`) is warranted after the differential test baseline is established.
