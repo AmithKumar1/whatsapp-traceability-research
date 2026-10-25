@@ -1,0 +1,42 @@
+{
+  "provenance": {
+    "repository": "https://github.com/nirvantyagi/tracing",
+    "commit": "24644f73fae82c1f6f4d7daea4f24638ecfd060b",
+    "profile": "upstream-rust-prototype-v1",
+    "generator": "examples/oracle_vectors.rs"
+  },
+  "inputs": {
+    "key1_hex": "000102030405060708090a0b0c0d0e0f",
+    "key2_hex": "101112131415161718191a1b1c1d1e1f",
+    "block_hex": "202122232425262728292a2b2c2d2e2f",
+    "message_utf8": "Tyagi et al. CCS 2019 reference differential test message",
+    "message_hex": "547961676920657420616c2e204343532032303139207265666572656e636520646966666572656e7469616c2074657374206d657373616765",
+    "wrong_message_utf8": "Tampered message content",
+    "wrong_message_hex": "54616d7065726564206d65737361676520636f6e74656e74"
+  },
+  "primitives": {
+    "hash_trunc_sha3_256_hex": "5cd65aa9b615aaba6a69310fa88b9c12",
+    "prf_trunc_sha3_256_hex": "bbd3eda3165560c30cc84099f91d3926",
+    "crprf_hmac_sha3_256_hex": "a594d60e5f14071cca0597e67aa7b479e59260755d722c01b81647817bdacfcc",
+    "aes128_encipher_hex": "5be87e2e5b447c944b21c9af7756c0d8",
+    "aes128_decipher_recovered_hex": "202122232425262728292a2b2c2d2e2f"
+  },
+  "path_protocol": {
+    "origin_metadata_ptr_hex": "00000000000000000000000000000000",
+    "origin_sender_tag": {
+      "addr_hex": "a594d60e5f14071cca0597e67aa7b479e59260755d722c01b81647817bdacfcc",
+      "ct_hex": "c6a13b37878f5b826f4f8162a1c8d879"
+    },
+    "recipient_verify_valid": {
+      "success": true,
+      "recovered_ptr_hex": "000102030405060708090a0b0c0d0e0f"
+    },
+    "recipient_verify_wrong_message": {
+      "success": false
+    },
+    "forward_hop1_sender_tag": {
+      "addr_hex": "9cd8e454a111dd3db3ec61abcaf0191e16358a537a6a63035e6e6d49f64a5471",
+      "ct_hex": "9c54d571702cfa0f03f36215676bab78"
+    }
+  }
+}
